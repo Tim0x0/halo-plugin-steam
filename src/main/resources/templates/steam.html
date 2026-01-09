@@ -204,10 +204,16 @@
             transition: all 0.2s;
         }
 
+        /* 根据等级区分背景色 */
+        .profile-badge--lv1 { background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); border-color: #4a5568; }
+        .profile-badge--lv2 { background: linear-gradient(135deg, #48bb78 0%, #276749 100%); border-color: #48bb78; }
+        .profile-badge--lv3 { background: linear-gradient(135deg, #4299e1 0%, #2b6cb0 100%); border-color: #4299e1; }
+        .profile-badge--lv4 { background: linear-gradient(135deg, #9f7aea 0%, #6b46c1 100%); border-color: #9f7aea; }
+        .profile-badge--lv5 { background: linear-gradient(135deg, #ed8936 0%, #c05621 100%); border-color: #ed8936; }
+
         .profile-badge:hover {
             border-color: var(--steam-accent);
             transform: scale(1.1);
-            background: rgba(102, 192, 244, 0.1);
         }
 
         .profile-badge--foil {
@@ -684,7 +690,8 @@
             <!-- 第四行：徽章图标 -->
             <div class="profile-card__badges" th:if="${badges != null && badges.badges != null && !badges.badges.isEmpty()}">
                 <th:block th:each="badge, iter : ${badges.badges}" th:if="${iter.index < 8}">
-                    <div class="profile-badge" th:classappend="${badge.foil ? 'profile-badge--foil' : ''}" 
+                    <div class="profile-badge" 
+                         th:classappend="${(badge.foil ? 'profile-badge--foil ' : '') + 'profile-badge--lv' + (badge.level > 5 ? 5 : badge.level)}" 
                          th:title="${badge.displayName + ' Lv.' + badge.level + ' +' + badge.xp + 'XP'}">
                         <span class="profile-badge__icon" th:text="${badge.gameBadge ? '🎮' : '🏅'}">🏅</span>
                         <span class="profile-badge__level" th:text="${badge.level}"></span>
