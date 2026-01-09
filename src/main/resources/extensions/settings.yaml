@@ -26,8 +26,7 @@ spec:
           label: 缓存过期时间（分钟）
           value: 10
           min: 1
-          max: 1440
-          validation: "required|min:1|max:1440"
+          validation: "required|min:1"
           help: 数据缓存时间。已缓存的数据不会立即应用新的过期时间，需点击"刷新缓存"重新缓存
         - $formkit: number
           name: apiTimeoutSeconds
