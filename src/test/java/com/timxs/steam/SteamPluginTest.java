@@ -3,6 +3,7 @@ package com.timxs.steam;
 import com.timxs.steam.cache.CacheService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
@@ -19,11 +20,13 @@ class SteamPluginTest {
     @Mock
     CacheService cacheService;
 
+    @InjectMocks
+    SteamPlugin plugin;
+
     @Test
     void contextLoads() {
         when(cacheService.evictAll()).thenReturn(Mono.empty());
         
-        SteamPlugin plugin = new SteamPlugin(context, cacheService);
         plugin.start();
         plugin.stop();
     }
