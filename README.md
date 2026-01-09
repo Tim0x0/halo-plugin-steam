@@ -1,5 +1,9 @@
 # Steam 信息展示插件
 
+[![GitHub Release](https://img.shields.io/github/v/release/Tim0x0/halo-plugin-steam?style=flat-square&logo=github)](https://github.com/Tim0x0/halo-plugin-steam/releases)
+[![GitHub License](https://img.shields.io/github/license/Tim0x0/halo-plugin-steam?style=flat-square)](https://github.com/Tim0x0/halo-plugin-steam/blob/main/LICENSE)
+[![Halo Version](https://img.shields.io/badge/Halo-%3E%3D2.22.1-blue?style=flat-square)](https://www.halo.run)
+
 在 Halo 博客中展示 Steam 用户资料、游戏库、最近游玩记录和徽章信息。
 
 ![预览](docs/doc_sample1.png)
