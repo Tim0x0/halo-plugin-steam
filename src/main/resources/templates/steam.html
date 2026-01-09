@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html xmlns:th="https://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${site.title + ' - ' + title}">Steam 游戏库</title>
+    <link rel="icon" type="image/x-icon" th:href="${site.favicon}">
+    <style>
+        :root {
+            --steam-dark: #171a21;
+            --steam-bg: #1b2838;
+            --steam-bg-light: #2a475e;
+            --steam-accent: #66c0f4;
+            --steam-accent-hover: #8ed1f7;
+            --steam-text: #c7d5e0;
+            --steam-text-light: #8f98a0;
+            --steam-green: #a4d007;
+            --steam-card-bg: #16202d;
+            --steam-border: #2a475e;
+            --steam-gradient: linear-gradient(180deg, #1b2838 0%, #171a21 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: "Motiva Sans", Arial, Helvetica, sans-serif;
+            background: var(--steam-gradient);
+            color: var(--steam-text);
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* Header Navigation */
+        .steam-header {
+            background: rgba(27, 40, 56, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--steam-border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .steam-header__inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .steam-header__nav {
+            display: flex;
+            gap: 8px;
+        }
+
+        .steam-header__link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            color: var(--steam-text);
+            text-decoration: none;
+            font-size: 13px;
+            border-radius: 3px;
+            transition: all 0.2s;
+            background: transparent;
+        }
+
+        .steam-header__link:hover {
+            background: var(--steam-bg-light);
+            color: #fff;
+        }
+
+        .steam-header__link svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 20px;
+        }
+
+        /* Profile Card */
+        .profile-card {
+            background: linear-gradient(135deg, var(--steam-bg-light) 0%, var(--steam-card-bg) 100%);
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 20px;
+            align-items: stretch;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--steam-border);
+        }
+
+        .profile-card__avatar-wrapper {
+            position: relative;
+            flex-shrink: 0;
+            align-self: center;
+        }
+
+        .profile-card__avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 2px;
+            border: 2px solid var(--steam-accent);
+            display: block;
+        }
+
+        .profile-card__status-dot {
+            position: absolute;
+            bottom: -9px;
+            right: -9px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 3px solid var(--steam-card-bg);
+            background: #898989;
+        }
+
+        .profile-card__status-dot.online { background: #57cbde; }
+        .profile-card__status-dot.playing { background: var(--steam-green); }
+
+        .profile-card__info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .profile-card__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .profile-card__name {
+            font-size: 22px;
+            font-weight: 300;
+            color: #fff;
+        }
+
+        .profile-card__status-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .profile-card__status {
+            font-size: 13px;
+            color: var(--steam-text-light);
+        }
+
+        .profile-card__status.online { color: #57cbde; }
+        .profile-card__status.playing { color: var(--steam-green); }
+
+        .profile-card__last-online {
+            font-size: 12px;
+            color: var(--steam-text-light);
+        }
+
+        .profile-card__meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 12px;
+            color: var(--steam-text-light);
+        }
+
+        .profile-card__level {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            background: var(--steam-accent);
+            color: var(--steam-dark);
+            border-radius: 2px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .profile-card__badges {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .profile-badge {
+            position: relative;
+            width: 26px;
+            height: 26px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--steam-border);
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: default;
+            transition: all 0.2s;
+        }
+
+        .profile-badge:hover {
+            border-color: var(--steam-accent);
+            transform: scale(1.1);
+            background: rgba(102, 192, 244, 0.1);
+        }
+
+        .profile-badge--foil {
+            border-color: #ffd700;
+            box-shadow: 0 0 4px rgba(255, 215, 0, 0.3);
+        }
+
+        .profile-badge__icon {
+            font-size: 13px;
+        }
+
+        .profile-badge__level {
+            position: absolute;
+            bottom: -4px;
+            right: -4px;
+            background: var(--steam-accent);
+            color: var(--steam-dark);
+            font-size: 8px;
+            font-weight: 700;
+            padding: 1px 3px;
+            border-radius: 2px;
+            line-height: 1;
+        }
+
+        .profile-badge--more {
+            background: var(--steam-bg-light);
+            color: var(--steam-text);
+            font-size: 10px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .profile-badge--more:hover {
+            background: var(--steam-accent);
+            color: var(--steam-dark);
+        }
+
+        .profile-card__btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #47bfff 0%, #1a9fff 100%);
+            color: #fff;
+            text-decoration: none;
+            font-size: 12px;
+            border-radius: 2px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .profile-card__btn:hover {
+            background: linear-gradient(135deg, #6cc8ff 0%, #47bfff 100%);
+            transform: translateY(-1px);
+        }
+
+        .profile-card__btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stats-bar__item {
+            background: var(--steam-card-bg);
+            border: 1px solid var(--steam-border);
+            border-radius: 4px;
+            padding: 16px 20px;
+            text-align: center;
+        }
+
+        .stats-bar__value {
+            font-size: 28px;
+            font-weight: 300;
+            color: var(--steam-accent);
+            margin-bottom: 4px;
+        }
+
+        .stats-bar__label {
+            font-size: 12px;
+            color: var(--steam-text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Section */
+        .section {
+            margin-bottom: 32px;
+        }
+
+        .section__header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--steam-border);
+        }
+
+        .section__title {
+            font-size: 14px;
+            font-weight: 400;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section__subtitle {
+            font-size: 12px;
+            color: var(--steam-text-light);
+        }
+
+        /* Recent Games Grid */
+        .recent-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+        }
+
+        .recent-card {
+            background: var(--steam-card-bg);
+            border-radius: 4px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .recent-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            border-color: var(--steam-accent);
+        }
+
+        .recent-card__link {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .recent-card__img {
+            width: 100%;
+            aspect-ratio: 460 / 215;
+            object-fit: cover;
+        }
+
+        .recent-card__info {
+            padding: 10px;
+        }
+
+        .recent-card__name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+
+        .recent-card__meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+        }
+
+        .recent-card__time {
+            color: var(--steam-green);
+        }
+
+        .recent-card__achievements {
+            color: var(--steam-text);
+        }
+
+        .recent-card__achievements--locked {
+            color: var(--steam-text-light);
+        }
+
+        .recent-card__separator {
+            color: var(--steam-text-light);
+            opacity: 0.5;
+        }
+
+        /* Games Grid */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 16px;
+        }
+
+        .game-card {
+            background: var(--steam-card-bg);
+            border-radius: 4px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .game-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            border-color: var(--steam-accent);
+        }
+
+        .game-card__link {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .game-card__img {
+            width: 100%;
+            aspect-ratio: 460 / 215;
+            object-fit: cover;
+        }
+
+        .game-card__info {
+            padding: 12px;
+        }
+
+        .game-card__name {
+            font-size: 13px;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 6px;
+        }
+
+        .game-card__meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .game-card__time {
+            font-size: 12px;
+            color: var(--steam-text);
+        }
+
+        .game-card__last-played {
+            font-size: 11px;
+            color: var(--steam-text-light);
+            opacity: 0.7;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 4px;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid var(--steam-border);
+        }
+
+        .pagination__btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+            padding: 0 10px;
+            background: var(--steam-bg-light);
+            color: var(--steam-text);
+            text-decoration: none;
+            font-size: 12px;
+            border-radius: 2px;
+            transition: all 0.15s;
+        }
+
+        .pagination__btn:hover {
+            background: var(--steam-accent);
+            color: var(--steam-dark);
+        }
+
+        .pagination__btn.active {
+            background: var(--steam-accent);
+            color: var(--steam-dark);
+            font-weight: 600;
+        }
+
+        .pagination__btn.disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .pagination__ellipsis {
+            color: var(--steam-text-light);
+            font-size: 12px;
+            padding: 0 4px;
+        }
+
+        /* Footer */
+        .steam-footer {
+            margin-top: 40px;
+            padding: 24px 20px;
+            border-top: 1px solid var(--steam-border);
+            text-align: center;
+        }
+
+        .steam-footer__inner {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .steam-footer__copyright {
+            font-size: 12px;
+            color: var(--steam-text-light);
+            margin-bottom: 8px;
+        }
+
+        .steam-footer__copyright a {
+            color: var(--steam-accent);
+            text-decoration: none;
+        }
+
+        .steam-footer__copyright a:hover {
+            text-decoration: underline;
+        }
+
+        .steam-footer__disclaimer {
+            font-size: 11px;
+            color: var(--steam-text-light);
+            opacity: 0.7;
+        }
+
+        .steam-footer__disclaimer a {
+            color: var(--steam-text-light);
+            text-decoration: none;
+        }
+
+        .steam-footer__disclaimer a:hover {
+            color: var(--steam-accent);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--steam-text-light);
+        }
+
+        .empty-state__icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state__title {
+            font-size: 18px;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .empty-state__desc {
+            font-size: 14px;
+            color: var(--steam-text-light);
+        }
+
+        /* Error Banner */
+        .error-banner {
+            background: linear-gradient(135deg, #4a2c2c 0%, #2d1f1f 100%);
+            border: 1px solid #6b3a3a;
+            border-radius: 4px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .error-banner__icon {
+            color: #ff6b6b;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .error-banner__text {
+            font-size: 14px;
+            color: #e0a0a0;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .recent-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .profile-card {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            .profile-card__header {
+                flex-direction: column;
+                gap: 12px;
+            }
+            .profile-card__meta {
+                justify-content: center;
+            }
+            .profile-card__badges {
+                justify-content: center;
+            }
+            .stats-bar { grid-template-columns: 1fr; }
+            .recent-grid { grid-template-columns: repeat(2, 1fr); }
+            .games-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<!-- Header -->
+<header class="steam-header">
+    <div class="steam-header__inner">
+        <div class="steam-header__nav">
+            <a th:href="@{/}" class="steam-header__link">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+                返回首页
+            </a>
+        </div>
+    </div>
+</header>
+
+<div class="container">
+    <!-- Error Banner - 当核心数据加载失败时显示 -->
+    <th:block th:with="profile=${steamFinder.getProfile()}, recentGames=${steamFinder.getRecentGames(5)}, stats=${steamFinder.getStats()}">
+    <div class="error-banner" th:if="${profile == null || games == null || games.items == null || games.items.isEmpty()}">
+        <span class="error-banner__icon">⚠</span>
+        <span class="error-banner__text">部分数据加载失败，可能是 Steam 服务器连接超时。请稍后刷新重试，或检查插件配置。</span>
+    </div>
+
+    <!-- Profile Card -->
+    <th:block th:with="badges=${steamFinder.getBadges()}">
+    <section class="profile-card" th:if="${profile}" th:with="p=${profile}">
+        <div class="profile-card__avatar-wrapper">
+            <img class="profile-card__avatar" th:src="${p?.summary?.avatarFull}" th:alt="${p?.summary?.personaName}" alt="Avatar">
+            <span class="profile-card__status-dot" th:classappend="${p?.playing ? 'playing' : (p?.summary?.personaState == 1 ? 'online' : '')}"></span>
+        </div>
+        <div class="profile-card__info">
+            <!-- 第一行：用户名 + 访问按钮 -->
+            <div class="profile-card__header">
+                <h1 class="profile-card__name" th:text="${p?.summary?.personaName}">Steam User</h1>
+                <a th:href="${p?.summary?.profileUrl}" target="_blank" class="profile-card__btn">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+                    访问 Steam
+                </a>
+            </div>
+            <!-- 第二行：在线状态 + 上次在线时间 -->
+            <div class="profile-card__status-row">
+                <span class="profile-card__status" th:classappend="${p?.playing ? 'playing' : (p?.summary?.personaState == 1 ? 'online' : '')}" th:text="${p?.statusText}">离线</span>
+                <span class="profile-card__last-online" th:if="${!p?.playing and p?.summary?.personaState != 1 and p?.summary?.lastLogoff != null}"
+                      th:text="'· 上次在线: ' + ${#dates.format(new java.util.Date(p.summary.lastLogoff * 1000), 'yyyy-MM-dd HH:mm')}"></span>
+            </div>
+            <!-- 第三行：等级 + 徽章统计 -->
+            <div class="profile-card__meta">
+                <span class="profile-card__level" th:if="${p?.steamLevel}">Lv. <span th:text="${p?.steamLevel}">0</span></span>
+                <th:block th:if="${badges != null && badges.totalBadges > 0}">
+                    <span>·</span>
+                    <span>🏅 <span th:text="${badges.totalBadges}">0</span> 徽章</span>
+                    <span>·</span>
+                    <span th:text="${badges.playerXp} + ' XP'">0 XP</span>
+                </th:block>
+            </div>
+            <!-- 第四行：徽章图标 -->
+            <div class="profile-card__badges" th:if="${badges != null && badges.badges != null && !badges.badges.isEmpty()}">
+                <th:block th:each="badge, iter : ${badges.badges}" th:if="${iter.index < 8}">
+                    <div class="profile-badge" th:classappend="${badge.foil ? 'profile-badge--foil' : ''}" 
+                         th:title="${badge.displayName + ' Lv.' + badge.level + ' +' + badge.xp + 'XP'}">
+                        <span class="profile-badge__icon" th:text="${badge.gameBadge ? '🎮' : '🏅'}">🏅</span>
+                        <span class="profile-badge__level" th:text="${badge.level}"></span>
+                    </div>
+                </th:block>
+                <a th:if="${badges.totalBadges > 8}" th:href="${p?.summary?.profileUrl + 'badges/'}" target="_blank" class="profile-badge profile-badge--more">
+                    +<span th:text="${badges.totalBadges - 8}"></span>
+                </a>
+            </div>
+        </div>
+    </section>
+    </th:block>
+
+    <!-- Stats Bar -->
+    <section class="stats-bar" th:if="${stats}">
+        <div class="stats-bar__item">
+            <div class="stats-bar__value" th:text="${stats.totalGames}">0</div>
+            <div class="stats-bar__label">游戏总数</div>
+        </div>
+        <div class="stats-bar__item">
+            <div class="stats-bar__value" th:text="${stats.totalPlaytimeFormatted}">0 小时</div>
+            <div class="stats-bar__label">总游玩时长</div>
+        </div>
+        <div class="stats-bar__item">
+            <div class="stats-bar__value" th:text="${stats.recentPlaytimeFormatted}">0 小时</div>
+            <div class="stats-bar__label">最近两周</div>
+        </div>
+    </section>
+
+    <!-- Recent Games -->
+    <section class="section" th:if="${profile}">
+        <div class="section__header">
+            <h2 class="section__title">最近游玩</h2>
+            <span class="section__subtitle" th:if="${recentGames != null && !recentGames.isEmpty()}" th:text="'显示最近两周玩的 ' + ${#lists.size(recentGames)} + ' 款游戏'"></span>
+        </div>
+        <div class="recent-grid" th:if="${recentGames != null && !recentGames.isEmpty()}">
+            <div class="recent-card" th:each="game : ${recentGames}">
+                <a th:if="${enableGameLink}" th:href="'https://store.steampowered.com/app/' + ${game.appId}" target="_blank" class="recent-card__link">
+                    <img class="recent-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                    <div class="recent-card__info">
+                        <div class="recent-card__name" th:text="${game.name}">Game</div>
+                        <div class="recent-card__meta">
+                            <span class="recent-card__time" th:text="${game.playtime2WeeksFormatted}">0h</span>
+                            <span class="recent-card__achievements" th:if="${game.achievementProgressText != null}" th:text="'🏆 ' + ${game.achievementProgressText}"></span>
+                            <span class="recent-card__achievements recent-card__achievements--locked" th:if="${game.achievementsLocked != null and game.achievementsLocked}">🔒</span>
+                        </div>
+                    </div>
+                </a>
+                <div th:unless="${enableGameLink}" class="recent-card__link">
+                    <img class="recent-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                    <div class="recent-card__info">
+                        <div class="recent-card__name" th:text="${game.name}">Game</div>
+                        <div class="recent-card__meta">
+                            <span class="recent-card__time" th:text="${game.playtime2WeeksFormatted}">0h</span>
+                            <span class="recent-card__achievements" th:if="${game.achievementProgressText != null}" th:text="'🏆 ' + ${game.achievementProgressText}"></span>
+                            <span class="recent-card__achievements recent-card__achievements--locked" th:if="${game.achievementsLocked != null and game.achievementsLocked}">🔒</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="empty-state" th:if="${recentGames == null || recentGames.isEmpty()}" style="padding: 30px 20px;">
+            <div class="empty-state__icon">😴</div>
+            <div class="empty-state__title">最近两周没有玩游戏</div>
+            <div class="empty-state__desc">休息一下也挺好的</div>
+        </div>
+    </section>
+    </th:block>
+
+    <!-- Games Library -->
+    <section class="section">
+        <div class="section__header">
+            <h2 class="section__title">游戏库</h2>
+            <span class="section__subtitle" th:if="${gamesLimit} != null and ${gamesLimit} gt 0" th:text="'显示游玩时长最多的 ' + ${gamesLimit} + ' 款游戏'"></span>
+            <span class="section__subtitle" th:unless="${gamesLimit} != null and ${gamesLimit} gt 0">全部游戏 · 按游玩时长排序</span>
+        </div>
+        <div class="games-grid" th:if="${games.items != null && !games.items.isEmpty()}">
+            <div class="game-card" th:each="game : ${games.items}">
+                <a th:if="${enableGameLink}" th:href="'https://store.steampowered.com/app/' + ${game.appId}" target="_blank" class="game-card__link">
+                    <img class="game-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                    <div class="game-card__info">
+                        <div class="game-card__name" th:text="${game.name}">Game</div>
+                        <div class="game-card__meta">
+                            <span class="game-card__time" th:text="${game.playtimeFormatted}">0h</span>
+                            <span class="game-card__last-played" th:if="${game.lastPlayedFormatted}" th:text="'最后游玩时间：'+${game.lastPlayedFormatted}"></span>
+                        </div>
+                    </div>
+                </a>
+                <div th:unless="${enableGameLink}" class="game-card__link">
+                    <img class="game-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                    <div class="game-card__info">
+                        <div class="game-card__name" th:text="${game.name}">Game</div>
+                        <div class="game-card__meta">
+                            <span class="game-card__time" th:text="${game.playtimeFormatted}">0h</span>
+                            <span class="game-card__last-played" th:if="${game.lastPlayedFormatted}" th:text="'最后游玩时间：'+${game.lastPlayedFormatted}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="empty-state" th:if="${games.items == null || games.items.isEmpty()}">
+            <div class="empty-state__icon">🎮</div>
+            <div class="empty-state__title">暂无游戏数据</div>
+            <div class="empty-state__desc" th:if="${profile == null}">Steam 服务器连接超时，请稍后刷新重试</div>
+            <div class="empty-state__desc" th:if="${profile != null}">游戏库为空，请检查 Steam 账号设置</div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" th:if="${games.totalPages > 1}" th:with="totalPages=${games.totalPages}, currentPage=${games.page}">
+            <!-- 上一页 -->
+            <a th:if="${games.hasPrevious()}" th:href="@{${games.prevUrl}}" class="pagination__btn">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            </a>
+            <span th:unless="${games.hasPrevious()}" class="pagination__btn disabled">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+            </span>
+
+            <!-- 第一页 -->
+            <a th:if="${currentPage > 1}" th:href="@{/steam}" class="pagination__btn">1</a>
+            <span th:if="${currentPage == 1}" class="pagination__btn active">1</span>
+
+            <!-- 左省略号 -->
+            <span th:if="${currentPage > 3}" class="pagination__ellipsis">...</span>
+
+            <!-- 中间页码 -->
+            <th:block th:each="i : ${#numbers.sequence(currentPage - 1, currentPage + 1)}">
+                <th:block th:if="${i > 1 && i < totalPages}">
+                    <a th:if="${i != currentPage}" th:href="@{'/steam/page/' + ${i}}" class="pagination__btn" th:text="${i}"></a>
+                    <span th:if="${i == currentPage}" class="pagination__btn active" th:text="${i}"></span>
+                </th:block>
+            </th:block>
+
+            <!-- 右省略号 -->
+            <span th:if="${currentPage < totalPages - 2}" class="pagination__ellipsis">...</span>
+
+            <!-- 最后一页 -->
+            <th:block th:if="${totalPages > 1}">
+                <a th:if="${currentPage != totalPages}" th:href="@{'/steam/page/' + ${totalPages}}" class="pagination__btn" th:text="${totalPages}"></a>
+                <span th:if="${currentPage == totalPages}" class="pagination__btn active" th:text="${totalPages}"></span>
+            </th:block>
+
+            <!-- 下一页 -->
+            <a th:if="${games.hasNext()}" th:href="@{${games.nextUrl}}" class="pagination__btn">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </a>
+            <span th:unless="${games.hasNext()}" class="pagination__btn disabled">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+            </span>
+        </div>
+    </section>
+</div>
+
+<!-- Footer -->
+<footer class="steam-footer">
+    <div class="steam-footer__inner">
+        <p class="steam-footer__copyright">© <span th:text="${#dates.year(#dates.createNow())}">2025</span> <a th:href="${site.url}" th:text="${site.title}">站点名称</a></p>
+        <p class="steam-footer__disclaimer">数据来源于 <a href="https://steamcommunity.com/dev" target="_blank">Steam Web API</a>，所有游戏相关内容版权归 <a href="https://store.steampowered.com" target="_blank">Valve Corporation</a> 所有</p>
+    </div>
+</footer>
+
+</body>
+</html>

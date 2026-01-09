@@ -1,0 +1,201 @@
+apiVersion: v1alpha1
+kind: Setting
+metadata:
+  name: steam-settings
+spec:
+  forms:
+    - group: basic
+      label: 基本配置
+      formSchema:
+        - $formkit: verificationForm
+          action: /apis/console.api.steam.halo.run/v1alpha1/verify
+          label: 验证配置
+          children:
+            - $formkit: password
+              name: apiKey
+              label: Steam API Key
+              help: 从 Steam 开发者页面获取 https://steamcommunity.com/dev/apikey。修改后需刷新缓存或等待缓存过期后生效
+              validation: required
+            - $formkit: text
+              name: steamId
+              label: Steam ID
+              help: 17位数字格式，如 76561198000000000。修改后需刷新缓存或等待缓存过期后生效
+              validation: required
+        - $formkit: number
+          name: cacheTtlMinutes
+          label: 缓存过期时间（分钟）
+          value: 10
+          min: 1
+          max: 1440
+          validation: "required|min:1|max:1440"
+          help: 数据缓存时间。已缓存的数据不会立即应用新的过期时间，需点击"刷新缓存"重新缓存
+        - $formkit: number
+          name: apiTimeoutSeconds
+          label: API 请求超时时间（秒）
+          value: 10
+          min: 5
+          max: 60
+          help: Steam API 请求超时时间，网络较慢时可适当增加
+        - $el: div
+          attrs:
+            class: formkit-actions
+            style:
+              paddingTop: "16px"
+              marginBottom: "16px"
+          children:
+            - $el: script
+              attrs:
+                type: text/javascript
+              children: |
+                async function refreshSteamCache() {
+                  const btn = document.getElementById('refreshSteamCacheBtn');
+                  const btnText = document.getElementById('refreshSteamCacheBtnText');
+                  btn.disabled = true;
+                  const oldText = btnText.textContent;
+                  btnText.textContent = '刷新中...';
+                  try {
+                    const response = await fetch('/apis/console.api.steam.halo.run/v1alpha1/refresh', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                      alert(result.message || '缓存刷新成功！');
+                    } else {
+                      throw new Error(result.message || '刷新失败');
+                    }
+                  } catch (err) {
+                    alert('刷新失败：' + err.message);
+                  } finally {
+                    btn.disabled = false;
+                    btnText.textContent = oldText;
+                  }
+                }
+            - $el: button
+              attrs:
+                type: button
+                id: refreshSteamCacheBtn
+                onclick: "refreshSteamCache()"
+                class: "btn-sm btn-primary btn flex items-center gap-2"
+              children:
+                - $el: span
+                  attrs:
+                    id: refreshSteamCacheBtnText
+                  children: 刷新缓存
+            - $el: div
+              attrs:
+                class: "formkit-help text-xs text-gray-500"
+                style:
+                  marginTop: "8px"
+              children: "立即刷新 Steam 数据缓存"
+
+    - group: page
+      label: 页面配置
+      formSchema:
+        - $formkit: text
+          name: pageTitle
+          label: 页面标题
+          value: Steam 游戏库
+          help: Steam 页面的标题
+        - $formkit: number
+          name: pageSize
+          label: 每页显示数量
+          value: 12
+          min: 1
+          max: 100
+          help: 游戏库分页每页显示的游戏数量
+        - $formkit: number
+          name: gamesLimit
+          label: 游戏库总数量限制
+          value: 50
+          min: 0
+          max: 500
+          help: 游戏库最多显示的游戏数量（按游玩时长排序），设为 0 则不限制
+        - $formkit: number
+          name: recentGamesLimit
+          label: 最近游玩显示数量
+          value: 5
+          min: 1
+          max: 20
+          help: 最近游玩页面显示的游戏数量
+        - $formkit: checkbox
+          name: showRecentAchievements
+          label: 显示最近游玩成就进度
+          value: false
+          help: 开启后会在最近游玩的游戏卡片上显示成就完成进度，会增加页面加载时间
+        - $formkit: checkbox
+          name: enableGameLink
+          label: 点击游戏卡片跳转 Steam 商城
+          value: false
+          help: 关闭后点击游戏卡片不会跳转到 Steam 商城页面
+        - $formkit: checkbox
+          name: includeFreeGames
+          label: 包含免费游戏
+          value: true
+          help: 开启后游戏库会包含玩过的免费游戏（如 CS2、Dota 2 等）。修改后需刷新缓存或等待缓存过期后生效
+
+    - group: proxy
+      label: 代理配置
+      formSchema:
+        - $formkit: group
+          name: imageProxy
+          label: 图片加速
+          children:
+            - $formkit: text
+              name: headerImageTemplate
+              label: 游戏封面图加速地址
+              value: https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg
+              help: "默认值：https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg。支持占位符: {appid}"
+            - $formkit: text
+              name: iconImageTemplate
+              label: 游戏图标加速地址
+              value: https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{hash}.jpg
+              help: "默认值：https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{hash}.jpg。支持占位符: {appid}, {hash}"
+        - $formkit: group
+          name: apiProxy
+          label: Steam API 代理
+          children:
+            - $formkit: checkbox
+              name: enabled
+              id: apiProxyEnabled
+              key: apiProxyEnabled
+              label: 启用 Steam API 代理
+              value: false
+              help: 修改后需刷新缓存或等待缓存过期后生效
+            - $formkit: radio
+              name: proxyType
+              id: apiProxyType
+              key: apiProxyType
+              label: 代理方式
+              value: http
+              options:
+                - label: HTTP 代理
+                  value: http
+                - label: 自定义 API 地址
+                  value: custom
+              if: "$get(apiProxyEnabled).value === true"
+            - $formkit: text
+              name: httpHost
+              label: 代理主机
+              placeholder: "127.0.0.1"
+              validation: required
+              help: 修改后需刷新缓存或等待缓存过期后生效
+              if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'http'"
+            - $formkit: number
+              name: httpPort
+              label: 代理端口
+              placeholder: "7890"
+              min: 1
+              max: 65535
+              validation: required
+              help: 修改后需刷新缓存或等待缓存过期后生效
+              if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'http'"
+            - $formkit: text
+              name: customApiUrl
+              label: 自定义 API 地址
+              placeholder: "https://your-steam-api-proxy.com"
+              help: "替换 api.steampowered.com 的地址。修改后需刷新缓存或等待缓存过期后生效"
+              validation: required
+              if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'custom'"
