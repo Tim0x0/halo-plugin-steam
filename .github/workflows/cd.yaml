@@ -12,6 +12,5 @@ jobs:
       contents: write
     with:
       java-version: 21
-      # Remove skip-appstore-release and set app-id if you want to release to the App Store
+      skip-node-setup: true
       skip-appstore-release: true
-      # app-id: app-xyz
