@@ -47,12 +47,16 @@ public class SteamApiClientImpl implements SteamApiClient {
         return settingService.getApiProxyConfig()
                 .map(proxyConfig -> {
                     String baseUrl = getBaseUrl(proxyConfig);
+                    log.debug("API 代理配置 - enabled: {}, proxyType: {}, httpHost: {}, httpPort: {}, baseUrl: {}", 
+                            proxyConfig.getEnabled(), proxyConfig.getProxyType(), 
+                            proxyConfig.getHttpHost(), proxyConfig.getHttpPort(), baseUrl);
                     
                     if (proxyConfig.getEnabled() != null && proxyConfig.getEnabled() 
                             && "http".equals(proxyConfig.getProxyType())
                             && proxyConfig.getHttpHost() != null && !proxyConfig.getHttpHost().isBlank()
                             && proxyConfig.getHttpPort() != null) {
                         // 使用 HTTP 代理
+                        log.debug("使用 HTTP 代理: {}:{}", proxyConfig.getHttpHost(), proxyConfig.getHttpPort());
                         HttpClient httpClient = HttpClient.create()
                                 .proxy(proxy -> proxy
                                         .type(ProxyProvider.Proxy.HTTP)
@@ -65,6 +69,7 @@ public class SteamApiClientImpl implements SteamApiClient {
                     }
                     
                     // 不使用代理或使用自定义 API 地址
+                    log.debug("不使用 HTTP 代理，直连 baseUrl: {}", baseUrl);
                     return WebClient.builder()
                             .baseUrl(baseUrl)
                             .build();

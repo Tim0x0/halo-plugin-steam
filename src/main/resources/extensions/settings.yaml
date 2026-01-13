@@ -180,6 +180,8 @@ spec:
               if: "$get(apiProxyEnabled).value === true"
             - $formkit: text
               name: httpHost
+              id: httpHost
+              key: httpHost
               label: 代理主机
               placeholder: "127.0.0.1"
               validation: required
@@ -187,6 +189,8 @@ spec:
               if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'http'"
             - $formkit: number
               name: httpPort
+              id: httpPort
+              key: httpPort
               label: 代理端口
               placeholder: "7890"
               min: 1
@@ -196,6 +200,8 @@ spec:
               if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'http'"
             - $formkit: text
               name: customApiUrl
+              id: customApiUrl
+              key: customApiUrl
               label: 自定义 API 地址
               placeholder: "https://your-steam-api-proxy.com"
               help: "替换 api.steampowered.com 的地址。修改后需刷新缓存或等待缓存过期后生效"
