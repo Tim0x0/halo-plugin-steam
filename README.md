@@ -6,6 +6,8 @@
 
 在 Halo 博客中展示 Steam 用户资料、游戏库、最近游玩记录和徽章信息。
 
+📖 [使用教程](docs/usage-guide.md) | 🎮 [在线演示](https://blog.timxs.com/steam)
+
 ![预览](docs/doc_sample1.png)
 
 ## 功能特性
@@ -14,13 +16,14 @@
 - 展示游戏库列表（支持分页、按游玩时长排序）
 - 展示最近游玩的游戏（可选显示成就进度）
 - 展示统计数据（游戏总数、总游玩时长、最近两周游玩时长）
-- 展示徽章信息（徽章列表、经验值、等级进度）
+- 展示徽章信息（徽章列表、经验值、等级进度，支持自定义徽章图片）
 - 数据缓存机制，减少 API 调用
 - 支持 Steam API 代理配置
 - 支持自定义图片 CDN 加速
 - 提供独立的 Steam 页面（`/steam`）
 - 提供 Finder API，方便主题集成
 - 提供 REST API，支持前端异步获取数据
+- 完善的错误处理，API 失败时优雅降级显示
 
 ## 安装
 
@@ -47,6 +50,14 @@
 - **点击游戏卡片跳转 Steam 商城**：开启后点击游戏卡片跳转到 Steam 商城页面
 - **包含免费游戏**：开启后游戏库会包含玩过的免费游戏（如 CS2、Dota 2 等）
 
+### 徽章配置
+
+支持为 Steam 系统徽章配置自定义图片：
+
+- **Badge ID**：Steam 徽章 ID，可在徽章页面 URL 中查看（如 `/badges/1` 中的 `1`）
+- **徽章名称**：便于识别（可选）
+- **图片 URL**：徽章图片完整地址，可从 Steam 页面右键复制
+
 ### 代理配置
 
 如果服务器无法直接访问 Steam API，可以配置代理：
@@ -71,8 +82,10 @@
 </div>
 
 <!-- 获取最近游玩 -->
-<div th:each="game : ${steamFinder.getRecentGames(5)}">
-    <span th:text="${game.name}">游戏名</span>
+<div th:with="recentGames=${steamFinder.getRecentGames(5)}">
+    <div th:each="game : ${recentGames}">
+        <span th:text="${game.name}">游戏名</span>
+    </div>
 </div>
 
 <!-- 获取游戏库（分页） -->

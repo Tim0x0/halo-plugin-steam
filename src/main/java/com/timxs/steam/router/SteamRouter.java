@@ -49,6 +49,7 @@ public class SteamRouter {
                                 ModelConst.TEMPLATE_ID, templateName,
                                 "title", getPageTitle(),
                                 "gamesLimit", getGamesLimit(),
+                                "recentGamesLimit", getRecentGamesLimit(),
                                 "enableGameLink", getEnableGameLink(),
                                 "games", getGamesList(request)
                         )
@@ -67,6 +68,15 @@ public class SteamRouter {
                     return node != null ? node.asInt(0) : 0;
                 })
                 .defaultIfEmpty(0);
+    }
+
+    private Mono<Integer> getRecentGamesLimit() {
+        return settingFetcher.get("page")
+                .map(setting -> {
+                    var node = setting.get("recentGamesLimit");
+                    return node != null ? node.asInt(5) : 5;
+                })
+                .defaultIfEmpty(5);
     }
 
     private Mono<Boolean> getEnableGameLink() {

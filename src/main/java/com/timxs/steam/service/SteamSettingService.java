@@ -15,6 +15,7 @@ public class SteamSettingService {
     private static final String GROUP_BASIC = "basic";
     private static final String GROUP_PAGE = "page";
     private static final String GROUP_PROXY = "proxy";
+    private static final String GROUP_BADGE = "badge";
     
     // 图片 URL 模板常量（公开供其他类使用）
     public static final String DEFAULT_HEADER_TEMPLATE = "https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg";
@@ -85,7 +86,9 @@ public class SteamSettingService {
      */
     public Mono<Integer> getApiTimeoutSeconds() {
         return getConfig()
-                .map(config -> config.getApiTimeoutSeconds() != null ? config.getApiTimeoutSeconds() : 10);
+                .map(config -> config.getApiTimeoutSeconds() != null 
+                        ? config.getApiTimeoutSeconds() 
+                        : 8);
     }
 
     /**
@@ -138,7 +141,7 @@ public class SteamSettingService {
         private String apiKey;
         private String steamId;
         private Integer cacheTtlMinutes = 10;
-        private Integer apiTimeoutSeconds = 10;
+        private Integer apiTimeoutSeconds = 8;
     }
 
     /**
@@ -237,6 +240,59 @@ public class SteamSettingService {
                     }
                     return DEFAULT_ICON_TEMPLATE;
                 });
+    }
+
+    /**
+     * 获取徽章配置
+     */
+    public Mono<BadgeConfig> getBadgeConfig() {
+        return settingFetcher.fetch(GROUP_BADGE, BadgeConfig.class)
+                .switchIfEmpty(Mono.just(new BadgeConfig()));
+    }
+
+    /**
+     * 获取徽章图片 URL
+     * @param badgeId 徽章 ID
+     * @return 图片 URL，如果没有匹配的映射则返回 null
+     */
+    public Mono<String> getBadgeImageUrl(Integer badgeId) {
+        return getBadgeConfig()
+                .map(config -> {
+                    if (config.getBadgeMappings() == null || badgeId == null) {
+                        return null;
+                    }
+                    return config.getBadgeMappings().stream()
+                            .filter(m -> badgeId.equals(m.getBadgeId()))
+                            .map(BadgeMapping::getImageUrl)
+                            .filter(url -> url != null && !url.isBlank())
+                            .findFirst()
+                            .orElse(null);
+                });
+    }
+
+    /**
+     * 徽章配置类
+     */
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class BadgeConfig {
+        private java.util.List<BadgeMapping> badgeMappings;
+    }
+
+    /**
+     * 徽章映射配置（简化版：badgeId + name + imageUrl）
+     */
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class BadgeMapping {
+        /** 徽章 ID */
+        private Integer badgeId;
+        /** 徽章名称（便于识别） */
+        private String name;
+        /** 图片 URL */
+        private String imageUrl;
     }
 
 }

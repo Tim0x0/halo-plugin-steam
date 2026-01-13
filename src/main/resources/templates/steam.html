@@ -192,8 +192,8 @@
 
         .profile-badge {
             position: relative;
-            width: 26px;
-            height: 26px;
+            width: 32px;
+            height: 32px;
             background: rgba(0, 0, 0, 0.2);
             border: 1px solid var(--steam-border);
             border-radius: 3px;
@@ -216,6 +216,18 @@
 
         .profile-badge__icon {
             font-size: 13px;
+        }
+
+        .profile-badge__img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 2px;
+        }
+
+        .profile-badge--has-img {
+            background: transparent;
+            padding: 0;
         }
 
         .profile-badge__level {
@@ -641,16 +653,15 @@
 </header>
 
 <div class="container">
-    <!-- Error Banner - 当核心数据加载失败时显示 -->
-    <th:block th:with="profile=${steamFinder.getProfile()}, recentGames=${steamFinder.getRecentGames(5)}, stats=${steamFinder.getStats()}">
-    <div class="error-banner" th:if="${profile == null || games == null || games.items == null || games.items.isEmpty()}">
+    <!-- Error Banner - 当任意 API 加载失败时显示 -->
+    <th:block th:with="profile=${steamFinder.getProfile()}, recentGames=${steamFinder.getRecentGames(recentGamesLimit)}, stats=${steamFinder.getStats()}, badges=${steamFinder.getBadges()}">
+    <div class="error-banner" th:if="${profile == null || recentGames == null || stats == null || badges == null || games == null}">
         <span class="error-banner__icon">⚠</span>
-        <span class="error-banner__text">部分数据加载失败，可能是 Steam 服务器连接超时。请稍后刷新重试，或检查插件配置。</span>
+        <span class="error-banner__text">部分 Steam 数据加载失败，可能是服务器连接超时。请稍后刷新重试，或检查插件配置。</span>
     </div>
 
     <!-- Profile Card -->
-    <th:block th:with="badges=${steamFinder.getBadges()}">
-    <section class="profile-card" th:if="${profile}" th:with="p=${profile}">
+    <section class="profile-card" th:if="${profile != null}" th:with="p=${profile}">
         <div class="profile-card__avatar-wrapper">
             <img class="profile-card__avatar" th:src="${p?.summary?.avatarFull}" th:alt="${p?.summary?.personaName}" alt="Avatar">
             <span class="profile-card__status-dot" th:classappend="${p?.playing ? 'playing' : (p?.summary?.personaState == 1 ? 'online' : '')}"></span>
@@ -684,10 +695,17 @@
             <div class="profile-card__badges" th:if="${badges != null && badges.badges != null && !badges.badges.isEmpty()}">
                 <th:block th:each="badge, iter : ${badges.badges}" th:if="${iter.index < 8}">
                     <div class="profile-badge" 
-                         th:classappend="${badge.foil ? 'profile-badge--foil' : ''}"
+                         th:classappend="${(badge.foil ? 'profile-badge--foil ' : '') + (badge.imageUrl != null && !badge.imageUrl.isEmpty() ? 'profile-badge--has-img' : '')}"
                          th:data-hue="${(badge.level * 37) % 360}"
-                         th:title="${badge.displayName + ' Lv.' + badge.level + ' +' + badge.xp + 'XP'}">
-                        <span class="profile-badge__icon" th:text="${badge.gameBadge ? '🎮' : '🏅'}">🏅</span>
+                         th:title="${(badge.badgeName != null && !badge.badgeName.isEmpty() ? badge.badgeName : badge.displayName) + ' Lv.' + badge.level + ' +' + badge.xp + 'XP'}">
+                        <img th:if="${badge.imageUrl != null && !badge.imageUrl.isEmpty()}" 
+                             class="profile-badge__img" 
+                             th:src="${badge.imageUrl}" 
+                             th:alt="${badge.displayName}" 
+                             loading="lazy">
+                        <span th:unless="${badge.imageUrl != null && !badge.imageUrl.isEmpty()}" 
+                              class="profile-badge__icon" 
+                              th:text="${badge.gameBadge ? '🎮' : '🏅'}">🏅</span>
                         <span class="profile-badge__level" th:text="${badge.level}"></span>
                     </div>
                 </th:block>
@@ -697,30 +715,30 @@
             </div>
         </div>
     </section>
-    </th:block>
 
     <!-- Stats Bar -->
-    <section class="stats-bar" th:if="${stats}">
+    <section class="stats-bar">
         <div class="stats-bar__item">
-            <div class="stats-bar__value" th:text="${stats.totalGames}">0</div>
+            <div class="stats-bar__value" th:text="${stats != null ? stats.totalGames : '-'}">0</div>
             <div class="stats-bar__label">游戏总数</div>
         </div>
         <div class="stats-bar__item">
-            <div class="stats-bar__value" th:text="${stats.totalPlaytimeFormatted}">0 小时</div>
+            <div class="stats-bar__value" th:text="${stats != null ? stats.totalPlaytimeFormatted : '-'}">0 小时</div>
             <div class="stats-bar__label">总游玩时长</div>
         </div>
         <div class="stats-bar__item">
-            <div class="stats-bar__value" th:text="${stats.recentPlaytimeFormatted}">0 小时</div>
+            <div class="stats-bar__value" th:text="${stats != null ? stats.recentPlaytimeFormatted : '-'}">0 小时</div>
             <div class="stats-bar__label">最近两周</div>
         </div>
     </section>
 
     <!-- Recent Games -->
-    <section class="section" th:if="${profile}">
+    <section class="section">
         <div class="section__header">
             <h2 class="section__title">最近游玩</h2>
             <span class="section__subtitle" th:if="${recentGames != null && !recentGames.isEmpty()}" th:text="'显示最近两周玩的 ' + ${#lists.size(recentGames)} + ' 款游戏'"></span>
         </div>
+        <!-- recentGames != null 且有数据：显示游戏列表 -->
         <div class="recent-grid" th:if="${recentGames != null && !recentGames.isEmpty()}">
             <div class="recent-card" th:each="game : ${recentGames}">
                 <a th:if="${enableGameLink}" th:href="'https://store.steampowered.com/app/' + ${game.appId}" target="_blank" class="recent-card__link">
@@ -747,10 +765,17 @@
                 </div>
             </div>
         </div>
-        <div class="empty-state" th:if="${recentGames == null || recentGames.isEmpty()}" style="padding: 30px 20px;">
+        <!-- recentGames != null 但为空：没有最近游玩 -->
+        <div class="empty-state" th:if="${recentGames != null && recentGames.isEmpty()}" style="padding: 30px 20px;">
             <div class="empty-state__icon">😴</div>
             <div class="empty-state__title">最近两周没有玩游戏</div>
             <div class="empty-state__desc">休息一下也挺好的</div>
+        </div>
+        <!-- recentGames == null：API 失败 -->
+        <div class="empty-state" th:if="${recentGames == null}" style="padding: 30px 20px;">
+            <div class="empty-state__icon">⚠️</div>
+            <div class="empty-state__title">最近游玩加载失败</div>
+            <div class="empty-state__desc">Steam 服务器连接超时，请稍后刷新重试</div>
         </div>
     </section>
     </th:block>
@@ -762,50 +787,51 @@
             <span class="section__subtitle" th:if="${gamesLimit} != null and ${gamesLimit} gt 0" th:text="'显示游玩时长最多的 ' + ${gamesLimit} + ' 款游戏'"></span>
             <span class="section__subtitle" th:unless="${gamesLimit} != null and ${gamesLimit} gt 0">全部游戏 · 按游玩时长排序</span>
         </div>
-        <div class="games-grid" th:if="${games.items != null && !games.items.isEmpty()}">
-            <div class="game-card" th:each="game : ${games.items}">
-                <a th:if="${enableGameLink}" th:href="'https://store.steampowered.com/app/' + ${game.appId}" target="_blank" class="game-card__link">
-                    <img class="game-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
-                    <div class="game-card__info">
-                        <div class="game-card__name" th:text="${game.name}">Game</div>
-                        <div class="game-card__meta">
-                            <span class="game-card__time" th:text="${game.playtimeFormatted}">0h</span>
-                            <span class="game-card__last-played" th:if="${game.lastPlayedFormatted}" th:text="'最后游玩时间：'+${game.lastPlayedFormatted}"></span>
+        <!-- games != null: API 成功 -->
+        <th:block th:if="${games != null}">
+            <div class="games-grid" th:if="${!games.items.isEmpty()}">
+                <div class="game-card" th:each="game : ${games.items}">
+                    <a th:if="${enableGameLink}" th:href="'https://store.steampowered.com/app/' + ${game.appId}" target="_blank" class="game-card__link">
+                        <img class="game-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                        <div class="game-card__info">
+                            <div class="game-card__name" th:text="${game.name}">Game</div>
+                            <div class="game-card__meta">
+                                <span class="game-card__time" th:text="${game.playtimeFormatted}">0h</span>
+                                <span class="game-card__last-played" th:if="${game.lastPlayedFormatted}" th:text="'最后游玩时间：'+${game.lastPlayedFormatted}"></span>
+                            </div>
                         </div>
-                    </div>
-                </a>
-                <div th:unless="${enableGameLink}" class="game-card__link">
-                    <img class="game-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
-                    <div class="game-card__info">
-                        <div class="game-card__name" th:text="${game.name}">Game</div>
-                        <div class="game-card__meta">
-                            <span class="game-card__time" th:text="${game.playtimeFormatted}">0h</span>
-                            <span class="game-card__last-played" th:if="${game.lastPlayedFormatted}" th:text="'最后游玩时间：'+${game.lastPlayedFormatted}"></span>
+                    </a>
+                    <div th:unless="${enableGameLink}" class="game-card__link">
+                        <img class="game-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                        <div class="game-card__info">
+                            <div class="game-card__name" th:text="${game.name}">Game</div>
+                            <div class="game-card__meta">
+                                <span class="game-card__time" th:text="${game.playtimeFormatted}">0h</span>
+                                <span class="game-card__last-played" th:if="${game.lastPlayedFormatted}" th:text="'最后游玩时间：'+${game.lastPlayedFormatted}"></span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        <div class="empty-state" th:if="${games.items == null || games.items.isEmpty()}">
-            <div class="empty-state__icon">🎮</div>
-            <div class="empty-state__title">暂无游戏数据</div>
-            <div class="empty-state__desc" th:if="${profile == null}">Steam 服务器连接超时，请稍后刷新重试</div>
-            <div class="empty-state__desc" th:if="${profile != null}">游戏库为空，请检查 Steam 账号设置</div>
-        </div>
+            <!-- API 成功但没数据 -->
+            <div class="empty-state" th:if="${games.items.isEmpty()}">
+                <div class="empty-state__icon">🎮</div>
+                <div class="empty-state__title">暂无游戏数据</div>
+                <div class="empty-state__desc">游戏库为空，请检查 Steam 账号设置</div>
+            </div>
+            <!-- Pagination -->
+            <div class="pagination" th:if="${games.totalPages > 1}" th:with="totalPages=${games.totalPages}, currentPage=${games.page}">
+                <!-- 上一页 -->
+                <a th:if="${games.hasPrevious()}" th:href="@{${games.prevUrl}}" class="pagination__btn">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                </a>
+                <span th:unless="${games.hasPrevious()}" class="pagination__btn disabled">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                </span>
 
-        <!-- Pagination -->
-        <div class="pagination" th:if="${games.totalPages > 1}" th:with="totalPages=${games.totalPages}, currentPage=${games.page}">
-            <!-- 上一页 -->
-            <a th:if="${games.hasPrevious()}" th:href="@{${games.prevUrl}}" class="pagination__btn">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-            </a>
-            <span th:unless="${games.hasPrevious()}" class="pagination__btn disabled">
-                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-            </span>
-
-            <!-- 第一页 -->
-            <a th:if="${currentPage > 1}" th:href="@{/steam}" class="pagination__btn">1</a>
-            <span th:if="${currentPage == 1}" class="pagination__btn active">1</span>
+                <!-- 第一页 -->
+                <a th:if="${currentPage > 1}" th:href="@{/steam}" class="pagination__btn">1</a>
+                <span th:if="${currentPage == 1}" class="pagination__btn active">1</span>
 
             <!-- 左省略号 -->
             <span th:if="${currentPage > 3}" class="pagination__ellipsis">...</span>
@@ -835,6 +861,13 @@
                 <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
             </span>
         </div>
+        </th:block>
+        <!-- games == null: API 失败 -->
+        <div class="empty-state" th:if="${games == null}">
+            <div class="empty-state__icon">⚠️</div>
+            <div class="empty-state__title">游戏库加载失败</div>
+            <div class="empty-state__desc">Steam 服务器连接超时，请稍后刷新重试</div>
+        </div>
     </section>
 </div>
 
@@ -847,8 +880,9 @@
 </footer>
 
 <script>
-// 根据等级动态设置徽章颜色
+// 根据等级动态设置徽章颜色（跳过有图片的徽章）
 document.querySelectorAll('.profile-badge[data-hue]').forEach(badge => {
+    if (badge.classList.contains('profile-badge--has-img')) return;
     const hue = badge.dataset.hue;
     badge.style.background = `linear-gradient(135deg, hsl(${hue}, 60%, 45%) 0%, hsl(${hue}, 60%, 30%) 100%)`;
     badge.style.borderColor = `hsl(${hue}, 60%, 45%)`;

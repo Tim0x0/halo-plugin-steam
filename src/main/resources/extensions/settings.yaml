@@ -28,13 +28,16 @@ spec:
           min: 1
           validation: "required|min:1"
           help: 数据缓存时间。已缓存的数据不会立即应用新的过期时间，需点击"刷新缓存"重新缓存
-        - $formkit: number
+        - $formkit: range
           name: apiTimeoutSeconds
+          id: apiTimeoutSeconds
+          key: apiTimeoutSeconds
           label: API 请求超时时间（秒）
-          value: 10
+          value: 8
           min: 5
           max: 60
-          help: Steam API 请求超时时间，网络较慢时可适当增加
+          step: 1
+          help: "$: '当前值：' + $get(apiTimeoutSeconds).value + ' 秒。主题模板调用受框架限制，最大 9 秒；REST API 不受此限制'"
         - $el: div
           attrs:
             class: formkit-actions
@@ -198,3 +201,28 @@ spec:
               help: "替换 api.steampowered.com 的地址。修改后需刷新缓存或等待缓存过期后生效"
               validation: required
               if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'custom'"
+
+    - group: badge
+      label: 徽章配置
+      formSchema:
+        - $formkit: array
+          name: badgeMappings
+          label: 系统徽章图片映射
+          addLabel: 添加映射
+          help: "配置 Steam 系统徽章的图片 URL。badgeId 可在 Steam 徽章页面 URL 中查看（如 /badges/1 中的 1）"
+          children:
+            - $formkit: number
+              name: badgeId
+              label: Badge ID
+              validation: required
+              help: "Steam 徽章 ID"
+            - $formkit: text
+              name: name
+              label: 徽章名称
+              help: "便于识别（可选）"
+            - $formkit: text
+              name: imageUrl
+              label: 图片 URL
+              validation: required
+              help: "徽章图片完整地址，可从 Steam 页面右键复制"
+          value: []

@@ -17,7 +17,7 @@ spec:
   issues: https://github.com/Tim0x0/halo-plugin-steam/issues
   displayName: "Steam 信息展示"
   description: "在 Halo 博客中展示 Steam 用户资料、游戏库和最近游玩记录"
-  version: "0.1.0"
+  version: "0.1.1"
   license:
     - name: "GPL-3.0"
       url: "https://github.com/Tim0x0/halo-plugin-steam/blob/main/LICENSE"

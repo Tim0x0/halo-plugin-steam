@@ -385,18 +385,56 @@ public class SteamServiceImpl implements SteamService {
 
     @Override
     public Mono<BadgeInfo> getBadges() {
-        return settingService.getConfig()
-                .flatMap(config -> {
-                    int ttl = config.getCacheTtlMinutes() != null ? config.getCacheTtlMinutes() : 10;
-                    String steamId = config.getSteamId();
+        return Mono.zip(
+                settingService.getConfig(),
+                settingService.getBadgeConfig()
+        ).flatMap(tuple -> {
+            var config = tuple.getT1();
+            var badgeConfig = tuple.getT2();
+            int ttl = config.getCacheTtlMinutes() != null ? config.getCacheTtlMinutes() : 10;
+            String steamId = config.getSteamId();
 
-                    return cacheService.get(CACHE_KEY_BADGES, BadgeInfo.class)
-                            .switchIfEmpty(fetchAndCacheBadges(steamId, ttl))
-                            .onErrorResume(e -> {
-                                log.warn("获取徽章失败，尝试返回缓存数据", e);
-                                return cacheService.getStale(CACHE_KEY_BADGES, BadgeInfo.class);
-                            });
-                });
+            return cacheService.get(CACHE_KEY_BADGES, BadgeInfo.class)
+                    .switchIfEmpty(fetchAndCacheBadges(steamId, ttl))
+                    .map(badges -> {
+                        enrichBadgesWithImageUrl(badges, badgeConfig);
+                        return badges;
+                    })
+                    .onErrorResume(e -> {
+                        log.warn("获取徽章失败，尝试返回缓存数据", e);
+                        return cacheService.getStale(CACHE_KEY_BADGES, BadgeInfo.class)
+                                .map(badges -> {
+                                    enrichBadgesWithImageUrl(badges, badgeConfig);
+                                    return badges;
+                                });
+                    });
+        });
+    }
+
+    /**
+     * 为徽章列表填充图片 URL
+     */
+    private void enrichBadgesWithImageUrl(BadgeInfo badgeInfo, SteamSettingService.BadgeConfig badgeConfig) {
+        if (badgeInfo == null || badgeInfo.getBadges() == null || badgeConfig == null) {
+            return;
+        }
+        var mappings = badgeConfig.getBadgeMappings();
+        if (mappings == null || mappings.isEmpty()) {
+            return;
+        }
+        for (Badge badge : badgeInfo.getBadges()) {
+            for (SteamSettingService.BadgeMapping mapping : mappings) {
+                if (badge.getBadgeId() != null && badge.getBadgeId().equals(mapping.getBadgeId())) {
+                    if (mapping.getImageUrl() != null && !mapping.getImageUrl().isBlank()) {
+                        badge.setImageUrl(mapping.getImageUrl());
+                    }
+                    if (mapping.getName() != null && !mapping.getName().isBlank()) {
+                        badge.setBadgeName(mapping.getName());
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     private Mono<BadgeInfo> fetchAndCacheBadges(String steamId, int ttl) {

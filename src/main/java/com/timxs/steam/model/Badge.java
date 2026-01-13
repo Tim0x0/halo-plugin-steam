@@ -40,6 +40,12 @@ public class Badge {
     @JsonProperty("border_color")
     private Integer borderColor;
 
+    /** 徽章图片 URL（从配置映射获取） */
+    private String imageUrl;
+
+    /** 徽章名称（从配置映射获取） */
+    private String badgeName;
+
     /**
      * 获取格式化的完成时间
      */
