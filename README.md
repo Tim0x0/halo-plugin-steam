@@ -77,36 +77,40 @@
 
 ```html
 <!-- 获取用户资料 -->
-<div th:with="profile=${steamFinder.getProfile()}">
-    <span th:text="${profile?.summary?.personaName}">用户名</span>
-</div>
+<th:block th:with="profile=${steamFinder.getProfile()}">
+    <div th:if="${profile != null}">
+        <span th:text="${profile.summary?.personaName}">用户名</span>
+    </div>
+</th:block>
 
 <!-- 获取最近游玩 -->
-<div th:with="recentGames=${steamFinder.getRecentGames(5)}">
-    <div th:each="game : ${recentGames}">
+<th:block th:with="recentGames=${steamFinder.getRecentGames(5)}">
+    <div th:if="${recentGames != null}" th:each="game : ${recentGames}">
         <span th:text="${game.name}">游戏名</span>
     </div>
-</div>
+</th:block>
 
 <!-- 获取游戏库（分页） -->
-<div th:with="games=${steamFinder.getOwnedGames(1, 12)}">
-    <div th:each="game : ${games.items}">
+<th:block th:with="games=${steamFinder.getOwnedGames(1, 12)}">
+    <div th:if="${games != null}" th:each="game : ${games.items}">
         <span th:text="${game.name}">游戏名</span>
     </div>
-</div>
+</th:block>
 
 <!-- 获取统计数据 -->
-<div th:with="stats=${steamFinder.getStats()}">
-    <span th:text="${stats.totalGames}">游戏总数</span>
-</div>
+<th:block th:with="stats=${steamFinder.getStats()}">
+    <span th:if="${stats != null}" th:text="${stats.totalGames}">游戏总数</span>
+</th:block>
 
 <!-- 获取徽章信息 -->
-<div th:with="badges=${steamFinder.getBadges()}">
-    <span th:text="${badges.totalBadges}">徽章总数</span>
-    <span th:text="${badges.playerXp}">总经验值</span>
-    <span th:text="${badges.playerLevel}">等级</span>
-</div>
+<th:block th:with="badges=${steamFinder.getBadges()}">
+    <span th:if="${badges != null}" th:text="${badges.totalBadges}">徽章总数</span>
+    <span th:if="${badges != null}" th:text="${badges.playerXp}">总经验值</span>
+    <span th:if="${badges != null}" th:text="${badges.playerLevel}">等级</span>
+</th:block>
 ```
+
+> ⚠️ Finder API 在请求失败时返回 `null`，建议做判空处理。详见 [使用教程](docs/usage-guide.md#错误处理)。
 
 ### REST API
 
