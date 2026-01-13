@@ -12,5 +12,5 @@ jobs:
       contents: write
     with:
       java-version: 21
-      skip-node-setup: true
-      skip-appstore-release: true
+      skip-node-setup: true 
+      app-id: app-0ojqyzfh
