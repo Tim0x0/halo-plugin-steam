@@ -1,0 +1,20 @@
+# Steam 公开 API 访问角色模板
+# 聚合到 anonymous 角色，允许未登录用户访问 Steam 公开 API
+apiVersion: v1alpha1
+kind: Role
+metadata:
+  name: role-template-view-steam-public-apis
+  labels:
+    halo.run/role-template: "true"
+    # 聚合到 anonymous 角色，使所有未登录用户都可以访问
+    rbac.authorization.halo.run/aggregate-to-anonymous: "true"
+    halo.run/hidden: "true"
+  annotations:
+    rbac.authorization.halo.run/module: "Steam Plugin"
+    rbac.authorization.halo.run/display-name: "Steam 公开 API 访问"
+    rbac.authorization.halo.run/ui-permissions: |
+      ["plugin:steam:public:view"]
+rules:
+  - apiGroups: [ "api.steam.halo.run" ]
+    resources: [ "*" ]
+    verbs: [ "get", "list" ]

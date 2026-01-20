@@ -1,6 +1,9 @@
 package com.timxs.steam.controller;
 
+import com.timxs.steam.controller.dto.HeatmapResult;
 import com.timxs.steam.service.SteamService;
+import com.timxs.steam.service.PlaytimeTrackingService;
+import com.timxs.steam.service.SteamSettingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -22,6 +25,8 @@ import static org.springdoc.core.fn.builders.requestbody.Builder.requestBodyBuil
 public class SteamConsoleController implements CustomEndpoint {
 
     private final SteamService steamService;
+    private final PlaytimeTrackingService trackingService;
+    private final SteamSettingService settingService;
 
     @Override
     public RouterFunction<ServerResponse> endpoint() {
@@ -41,6 +46,18 @@ public class SteamConsoleController implements CustomEndpoint {
                                 .tag(tag)
                                 .response(responseBuilder()
                                         .implementation(RefreshResponse.class)))
+                .POST("/heatmap/track", this::manualTrack,
+                        builder -> builder.operationId("ManualTrackPlaytime")
+                                .description("手动触发游戏时长追踪（需要管理员权限）")
+                                .tag(tag)
+                                .response(responseBuilder()
+                                        .implementation(HeatmapResult.class)))
+                .POST("/heatmap/cleanup", this::manualCleanup,
+                        builder -> builder.operationId("ManualCleanupHeatmap")
+                                .description("手动触发热力图数据清理（需要管理员权限）")
+                                .tag(tag)
+                                .response(responseBuilder()
+                                        .implementation(HeatmapResult.class)))
                 .build();
     }
 
@@ -122,5 +139,60 @@ public class SteamConsoleController implements CustomEndpoint {
                 .onErrorResume(e -> ServerResponse.status(500)
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(new RefreshResponse(false, e.getMessage())));
+    }
+
+    /**
+     * 手动触发时长追踪
+     */
+    private Mono<ServerResponse> manualTrack(ServerRequest request) {
+        return settingService.isHeatmapEnabled()
+            .flatMap(enabled -> {
+                if (!enabled) {
+                    return ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(new HeatmapResult(false, 0, "游戏时长追踪功能未启用，请先在设置中开启"));
+                }
+                
+                return trackingService.trackAllGames()
+                    .flatMap(count -> ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(new HeatmapResult(true, count, "追踪完成，处理了 " + count + " 款游戏")))
+                    .onErrorResume(e -> {
+                        String errorMsg = e.getMessage();
+                        String message;
+                        if (errorMsg != null && errorMsg.contains("Did not observe")) {
+                            message = "Steam API 请求超时，请检查网络连接或增加超时时间";
+                        } else if (errorMsg != null && errorMsg.contains("Steam ID")) {
+                            message = errorMsg;
+                        } else {
+                            message = "追踪失败: " + (errorMsg != null ? errorMsg : "未知错误");
+                        }
+                        return ServerResponse.ok()
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .bodyValue(new HeatmapResult(false, 0, message));
+                    });
+            });
+    }
+
+    /**
+     * 手动触发数据清理
+     */
+    private Mono<ServerResponse> manualCleanup(ServerRequest request) {
+        return settingService.isHeatmapEnabled()
+            .flatMap(enabled -> {
+                if (!enabled) {
+                    return ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(new HeatmapResult(false, 0, "游戏时长追踪功能未启用，请先在设置中开启"));
+                }
+                
+                return trackingService.cleanupExpiredData()
+                    .flatMap(count -> ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(new HeatmapResult(true, count, "清理完成，删除了 " + count + " 条记录")))
+                    .onErrorResume(e -> ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(new HeatmapResult(false, 0, "清理失败：" + e.getMessage())));
+            });
     }
 }

@@ -11,6 +11,7 @@ import run.halo.app.extension.ListResult;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -91,12 +92,14 @@ public class SteamServiceImpl implements SteamService {
                 settingService.getConfig(),
                 settingService.getGamesLimit(),
                 settingService.getHeaderImageTemplate(),
-                settingService.getIconImageTemplate()
+                settingService.getIconImageTemplate(),
+                settingService.getHiddenGameIds()
         ).flatMap(tuple -> {
             var config = tuple.getT1();
             int gamesLimit = tuple.getT2();
             String headerTemplate = tuple.getT3();
             String iconTemplate = tuple.getT4();
+            var hiddenGameIds = tuple.getT5();
             int ttl = config.getCacheTtlMinutes() != null ? config.getCacheTtlMinutes() : 10;
             String steamId = config.getSteamId();
 
@@ -105,14 +108,17 @@ public class SteamServiceImpl implements SteamService {
                     .map(gamesList -> {
                         // 为每个游戏设置 URL 模板
                         applyTemplates(gamesList.getGames(), headerTemplate, iconTemplate);
-                        return paginateAndSort(gamesList.getGames(), page, size, sortBy, gamesLimit);
+                        // 过滤隐藏的游戏
+                        List<OwnedGame> filteredGames = filterHiddenGames(gamesList.getGames(), hiddenGameIds);
+                        return paginateAndSort(filteredGames, page, size, sortBy, gamesLimit);
                     })
                     .onErrorResume(e -> {
                         log.warn("获取游戏库失败，尝试返回缓存数据", e);
                         return cacheService.getStale(CACHE_KEY_GAMES, GamesList.class)
                                 .map(gamesList -> {
                                     applyTemplates(gamesList.getGames(), headerTemplate, iconTemplate);
-                                    return paginateAndSort(gamesList.getGames(), page, size, sortBy, gamesLimit);
+                                    List<OwnedGame> filteredGames = filterHiddenGames(gamesList.getGames(), hiddenGameIds);
+                                    return paginateAndSort(filteredGames, page, size, sortBy, gamesLimit);
                                 });
                     });
         });
@@ -196,6 +202,30 @@ public class SteamServiceImpl implements SteamService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 过滤隐藏的游戏
+     */
+    private List<OwnedGame> filterHiddenGames(List<OwnedGame> games, Set<Long> hiddenGameIds) {
+        if (games == null || games.isEmpty() || hiddenGameIds == null || hiddenGameIds.isEmpty()) {
+            return games != null ? games : List.of();
+        }
+        return games.stream()
+                .filter(game -> game.getAppId() == null || !hiddenGameIds.contains(game.getAppId()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 过滤隐藏的最近游玩游戏
+     */
+    private List<RecentGame> filterHiddenRecentGames(List<RecentGame> games, Set<Long> hiddenGameIds) {
+        if (games == null || games.isEmpty() || hiddenGameIds == null || hiddenGameIds.isEmpty()) {
+            return games != null ? games : List.of();
+        }
+        return games.stream()
+                .filter(game -> game.getAppId() == null || !hiddenGameIds.contains(game.getAppId()))
+                .collect(Collectors.toList());
+    }
+
     @Override
     public Mono<List<RecentGame>> getRecentGames(int limit) {
         return Mono.zip(
@@ -203,13 +233,15 @@ public class SteamServiceImpl implements SteamService {
                 settingService.getRecentGamesLimit(),
                 settingService.getHeaderImageTemplate(),
                 settingService.getIconImageTemplate(),
-                settingService.isShowRecentAchievements()
+                settingService.isShowRecentAchievements(),
+                settingService.getHiddenGameIds()
         ).flatMap(tuple -> {
             var config = tuple.getT1();
             int configLimit = tuple.getT2();
             String headerTemplate = tuple.getT3();
             String iconTemplate = tuple.getT4();
             boolean showAchievements = tuple.getT5();
+            var hiddenGameIds = tuple.getT6();
             int ttl = config.getCacheTtlMinutes() != null ? config.getCacheTtlMinutes() : 10;
             String steamId = config.getSteamId();
             int actualLimit = limit > 0 ? limit : configLimit;
@@ -220,7 +252,9 @@ public class SteamServiceImpl implements SteamService {
                     .map(games -> {
                         // 为每个游戏设置 URL 模板
                         applyTemplates(games, headerTemplate, iconTemplate);
-                        return games.stream().limit(actualLimit).collect(Collectors.toList());
+                        // 过滤隐藏的游戏
+                        List<RecentGame> filteredGames = filterHiddenRecentGames(games, hiddenGameIds);
+                        return filteredGames.stream().limit(actualLimit).collect(Collectors.toList());
                     })
                     .flatMap(games -> {
                         if (showAchievements && !games.isEmpty()) {
@@ -235,7 +269,8 @@ public class SteamServiceImpl implements SteamService {
                                 .map(RecentGamesList::getGames)
                                 .map(games -> {
                                     applyTemplates(games, headerTemplate, iconTemplate);
-                                    return games.stream().limit(actualLimit).collect(Collectors.toList());
+                                    List<RecentGame> filteredGames = filterHiddenRecentGames(games, hiddenGameIds);
+                                    return filteredGames.stream().limit(actualLimit).collect(Collectors.toList());
                                 });
                     });
         });

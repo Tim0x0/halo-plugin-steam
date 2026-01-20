@@ -16,6 +16,7 @@ public class SteamSettingService {
     private static final String GROUP_PAGE = "page";
     private static final String GROUP_PROXY = "proxy";
     private static final String GROUP_BADGE = "badge";
+    private static final String GROUP_STATS = "stats";
     
     // 图片 URL 模板常量（公开供其他类使用）
     public static final String DEFAULT_HEADER_TEMPLATE = "https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg";
@@ -120,7 +121,7 @@ public class SteamSettingService {
      */
     public Mono<Boolean> isEnableGameLink() {
         return getPageConfig()
-                .map(config -> config.getEnableGameLink() == null || config.getEnableGameLink());
+                .map(config -> config.getEnableGameLink() != null && config.getEnableGameLink());
     }
 
     /**
@@ -156,8 +157,77 @@ public class SteamSettingService {
         private Integer gamesLimit = 50;
         private Integer recentGamesLimit = 5;
         private Boolean showRecentAchievements = false;
-        private Boolean enableGameLink = true;
+        private Boolean enableGameLink = false;
         private Boolean includeFreeGames = true;
+        private java.util.List<HiddenGameEntry> hiddenGames;
+    }
+
+    /**
+     * 隐藏游戏条目
+     */
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class HiddenGameEntry {
+        private String game;
+    }
+
+    /**
+     * 获取隐藏的游戏 ID 集合
+     * 支持直接输入游戏 ID 或 Steam 商店链接
+     */
+    public Mono<java.util.Set<Long>> getHiddenGameIds() {
+        return getPageConfig()
+                .map(config -> parseHiddenGames(config.getHiddenGames()));
+    }
+
+    /**
+     * 解析隐藏游戏配置
+     */
+    private java.util.Set<Long> parseHiddenGames(java.util.List<HiddenGameEntry> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return java.util.Set.of();
+        }
+
+        return entries.stream()
+                .map(HiddenGameEntry::getGame)
+                .filter(java.util.Objects::nonNull)
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(this::extractAppId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /**
+     * 从输入中提取游戏 ID
+     * 支持直接输入数字或 Steam 商店链接
+     * 支持的链接格式：
+     * - https://store.steampowered.com/app/730/
+     * - https://store.steampowered.com/app/10/CounterStrike/
+     * - https://store.steampowered.com/agecheck/app/578080/
+     */
+    private Long extractAppId(String input) {
+        if (input == null || input.isBlank()) {
+            return null;
+        }
+        // 如果包含 /app/ 路径，提取后面的数字（支持各种 Steam 链接格式）
+        if (input.contains("/app/")) {
+            java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("/app/(\\d+)").matcher(input);
+            if (matcher.find()) {
+                try {
+                    return Long.parseLong(matcher.group(1));
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            }
+        }
+        // 否则尝试直接解析为数字
+        try {
+            return Long.parseLong(input);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
@@ -293,6 +363,150 @@ public class SteamSettingService {
         private String name;
         /** 图片 URL */
         private String imageUrl;
+    }
+
+    /**
+     * 热力图配置类（已废弃，合并到 StatsConfig）
+     * @deprecated 使用 StatsConfig 代替
+     */
+    @Deprecated
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class HeatmapConfig {
+        /** 是否启用热力图功能 */
+        private Boolean enabled = false;
+        /** 数据保留天数 */
+        private Integer retentionDays = 365;
+    }
+
+    /**
+     * 获取热力图配置（已废弃）
+     * @deprecated 使用 getStatsConfig() 代替
+     */
+    @Deprecated
+    public Mono<HeatmapConfig> getHeatmapConfig() {
+        return getStatsConfig()
+                .map(stats -> {
+                    HeatmapConfig config = new HeatmapConfig();
+                    config.setEnabled(stats.getEnableTracking());
+                    config.setRetentionDays(stats.getRetentionDays());
+                    return config;
+                });
+    }
+
+    /**
+     * 热力图功能是否启用
+     */
+    public Mono<Boolean> isHeatmapEnabled() {
+        return getStatsConfig()
+                .map(config -> config.getEnableTracking() != null && config.getEnableTracking());
+    }
+
+    /**
+     * 获取热力图数据保留天数
+     */
+    public Mono<Integer> getHeatmapRetentionDays() {
+        return getStatsConfig()
+                .map(config -> config.getRetentionDays() != null ? config.getRetentionDays() : 365);
+    }
+
+    /**
+     * 统计配置类
+     */
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class StatsConfig {
+        /** 是否启用游戏时长追踪 */
+        private Boolean enableTracking = false;
+        /** 数据保留天数 */
+        private Integer retentionDays = 365;
+        /** 热力图显示配置组 */
+        private HeatmapDisplayConfig heatmapDisplay;
+    }
+
+    /**
+     * 热力图显示配置类
+     */
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class HeatmapDisplayConfig {
+        /** 是否在页面显示热力图 */
+        private Boolean showHeatmap = false;
+        /** 热力图显示天数 */
+        private Integer heatmapDays = 365;
+        /** 热力图颜色主题 */
+        private String heatmapColorTheme = "steam";
+        /** 是否显示图例 */
+        private Boolean heatmapShowLegend = false;
+    }
+
+    /**
+     * 获取统计配置
+     */
+    public Mono<StatsConfig> getStatsConfig() {
+        return settingFetcher.fetch(GROUP_STATS, StatsConfig.class)
+                .switchIfEmpty(Mono.just(new StatsConfig()));
+    }
+
+    /**
+     * 是否在页面显示热力图
+     */
+    public Mono<Boolean> isShowHeatmap() {
+        return getStatsConfig()
+                .map(config -> {
+                    if (config.getHeatmapDisplay() == null) {
+                        return false;
+                    }
+                    return config.getHeatmapDisplay().getShowHeatmap() != null 
+                            && config.getHeatmapDisplay().getShowHeatmap();
+                });
+    }
+
+    /**
+     * 获取热力图显示天数
+     */
+    public Mono<Integer> getHeatmapDisplayDays() {
+        return getStatsConfig()
+                .map(config -> {
+                    if (config.getHeatmapDisplay() == null) {
+                        return 365;
+                    }
+                    return config.getHeatmapDisplay().getHeatmapDays() != null 
+                            ? config.getHeatmapDisplay().getHeatmapDays() 
+                            : 365;
+                });
+    }
+
+    /**
+     * 获取热力图颜色主题
+     */
+    public Mono<String> getHeatmapColorTheme() {
+        return getStatsConfig()
+                .map(config -> {
+                    if (config.getHeatmapDisplay() == null) {
+                        return "steam";
+                    }
+                    return config.getHeatmapDisplay().getHeatmapColorTheme() != null 
+                            ? config.getHeatmapDisplay().getHeatmapColorTheme() 
+                            : "steam";
+                });
+    }
+
+    /**
+     * 是否显示热力图图例
+     */
+    public Mono<Boolean> isShowHeatmapLegend() {
+        return getStatsConfig()
+                .map(config -> {
+                    if (config.getHeatmapDisplay() == null) {
+                        return false;
+                    }
+                    return config.getHeatmapDisplay().getHeatmapShowLegend() != null 
+                            && config.getHeatmapDisplay().getHeatmapShowLegend();
+                });
     }
 
 }

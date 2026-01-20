@@ -7,6 +7,70 @@ spec:
     - group: basic
       label: 基本配置
       formSchema:
+        - $el: div
+          attrs:
+            class: "text-sm"
+            style: |
+              margin-bottom: 1rem;
+              margin-top: -0.5rem;
+              padding: 0.75rem 1rem;
+              background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+              border-radius: 0.5rem;
+              border: 1px solid #bae6fd;
+          children:
+            - $el: div
+              attrs:
+                style: |
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                  flex-wrap: wrap;
+                  gap: 0.5rem;
+              children:
+                - $el: span
+                  attrs:
+                    style: "color: #0369a1; font-weight: 500;"
+                  children: "💡 配置前必读"
+                - $el: div
+                  attrs:
+                    style: "display: flex; gap: 0.5rem;"
+                  children:
+                    - $el: a
+                      attrs:
+                        href: "https://steamcommunity.com/dev/apikey"
+                        target: "_blank"
+                        style: |
+                          color: #0369a1;
+                          text-decoration: none;
+                          font-size: 0.75rem;
+                          border-bottom: 1px dashed #0369a1;
+                      children: "获取 API Key"
+                    - $el: span
+                      attrs:
+                        style: "color: #bae6fd;"
+                      children: "|"
+                    - $el: a
+                      attrs:
+                        href: "https://steamid.io/"
+                        target: "_blank"
+                        style: |
+                          color: #0369a1;
+                          text-decoration: none;
+                          font-size: 0.75rem;
+                          border-bottom: 1px dashed #0369a1;
+                      children: "查询 Steam ID"
+            - $el: div
+              attrs:
+                style: |
+                  margin-top: 0.5rem;
+                  color: #0369a1;
+                  font-size: 0.75rem;
+                  line-height: 1.5;
+              children:
+                - $el: p
+                  children: "1. 请务必将 Steam 个人资料隐私设置为「公开」，否则无法获取数据"
+                - $el: p
+                  children: "2. 如果国内服务器请求失败，请在「代理配置」中设置 HTTP 代理或 API 反代"
         - $formkit: verificationForm
           action: /apis/console.api.steam.halo.run/v1alpha1/verify
           label: 验证配置
@@ -137,7 +201,190 @@ spec:
           label: 包含免费游戏
           value: true
           help: 开启后游戏库会包含玩过的免费游戏（如 CS2、Dota 2 等）。修改后需刷新缓存或等待缓存过期后生效
+        - $formkit: array
+          name: hiddenGames
+          label: 隐藏的游戏
+          addLabel: 添加游戏
+          help: "如何获取游戏 ID？1. 打开游戏的 Steam 商店页面（如 https://store.steampowered.com/app/730/）2. 链接中的数字（730）就是游戏 ID。3. 可直接粘贴链接或只输入数字。"
+          children:
+            - $formkit: text
+              name: game
+              label: 游戏 ID 或链接
+              placeholder: "730 或 https://store.steampowered.com/app/730/"
+              validation: required
+          value: []
+ 
+    - group: badge
+      label: 徽章配置
+      formSchema:
+        - $formkit: array
+          name: badgeMappings
+          label: 系统徽章图片映射
+          addLabel: 添加映射
+          help: "配置 Steam 系统徽章的图片 URL。badgeId 可在 Steam 徽章页面 URL 中查看（如 /badges/1 中的 1）"
+          children:
+            - $formkit: number
+              name: badgeId
+              label: Badge ID
+              validation: required
+              help: "Steam 徽章 ID"
+            - $formkit: text
+              name: name
+              label: 徽章名称
+              help: "便于识别（可选）"
+            - $formkit: text
+              name: imageUrl
+              label: 图片 URL
+              validation: required
+              help: "徽章图片完整地址，可从 Steam 页面右键复制"
+          value: []
 
+    - group: stats
+      label: 统计
+      formSchema:
+        - $formkit: switch
+          name: enableTracking
+          id: enableTracking
+          key: enableTracking
+          label: 启用游戏时长追踪
+          value: false
+          help: 开启后将每小时追踪游戏时长变化，用于生成热力图。首次启用后需等待至少 1 小时才会有数据
+        - $formkit: number
+          name: retentionDays
+          label: 数据保留天数
+          value: 365
+          min: 30
+          max: 3650
+          help: 每日游戏时长记录的保留天数，超过此天数的数据将被自动清理（每天凌晨 3 点执行）
+          if: "$get(enableTracking).value === true"
+        - $el: div
+          attrs:
+            class: "formkit-help text-sm text-gray-600 bg-blue-50 p-3 rounded"
+            style:
+              marginTop: "16px"
+          if: "$get(enableTracking).value === true"
+          children:
+            - $el: p
+              attrs:
+                style:
+                  marginBottom: "8px"
+              children: "⚠️ 重要说明："
+            - $el: ul
+              attrs:
+                style:
+                  listStyleType: "disc"
+                  paddingLeft: "20px"
+              children:
+                - $el: li
+                  children: "热力图功能通过定时任务（每小时第 59 分钟）追踪游戏时长变化"
+                - $el: li
+                  children: "Steam API 不提供历史数据，只能从启用功能后开始记录"
+                - $el: li
+                  children: "首次发现的游戏不会记录当前累计时长，从下次追踪开始计算"
+                - $el: li
+                  children: "服务器停机期间的游戏时长无法准确追踪"
+                - $el: li
+                  children: "数据存储在 Halo 数据库中，禁用功能不会删除已有数据"
+        - $el: div
+          attrs:
+            class: formkit-actions
+            style:
+              paddingTop: "16px"
+              marginBottom: "16px"
+              borderBottom: "1px solid #e5e7eb"
+              paddingBottom: "16px"
+          if: "$get(enableTracking).value === true"
+          children:
+            - $el: script
+              attrs:
+                type: text/javascript
+              children: |
+                async function manualTrackPlaytime() {
+                  const btn = document.getElementById('manualTrackBtn');
+                  const btnText = document.getElementById('manualTrackBtnText');
+                  btn.disabled = true;
+                  const oldText = btnText.textContent;
+                  btnText.textContent = '追踪中...';
+                  try {
+                    const response = await fetch('/apis/console.api.steam.halo.run/v1alpha1/heatmap/track', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                    });
+                    const result = await response.json();
+                    if (response.ok && result.success) {
+                      alert(result.message || '追踪完成！');
+                    } else {
+                      throw new Error(result.message || '追踪失败');
+                    }
+                  } catch (err) {
+                    alert('追踪失败：' + err.message);
+                  } finally {
+                    btn.disabled = false;
+                    btnText.textContent = oldText;
+                  }
+                }
+            - $el: button
+              attrs:
+                type: button
+                id: manualTrackBtn
+                onclick: "manualTrackPlaytime()"
+                class: "btn-sm btn-secondary btn flex items-center gap-2"
+              children:
+                - $el: span
+                  attrs:
+                    id: manualTrackBtnText
+                  children: 手动追踪时长
+            - $el: div
+              attrs:
+                class: "formkit-help text-xs text-gray-500"
+                style:
+                  marginTop: "8px"
+              children: "立即执行一次游戏时长追踪（用于测试）"
+        
+        # 热力图显示配置组
+        - $formkit: group
+          name: heatmapDisplay
+          label: 热力图显示
+          if: "$get(enableTracking).value === true"
+          children:
+            - $formkit: switch
+              name: showHeatmap
+              id: showHeatmap
+              key: showHeatmap
+              label: 在页面显示热力图
+              value: false
+              help: 开启后会在统计栏下方显示游戏时长热力图
+            - $formkit: number
+              name: heatmapDays
+              label: 显示天数
+              value: 365
+              min: 30
+              max: 730
+              help: 热力图显示最近多少天的数据（默认 365 天，即一年）
+              if: "$get(showHeatmap).value === true"
+            - $formkit: select
+              name: heatmapColorTheme
+              label: 颜色主题
+              value: steam
+              options:
+                - label: Steam 蓝色
+                  value: steam
+                - label: GitHub 绿色
+                  value: github
+                - label: 火焰橙色
+                  value: fire
+                - label: 紫色梦幻
+                  value: purple
+              help: 选择热力图的颜色风格
+              if: "$get(showHeatmap).value === true"
+            - $formkit: checkbox
+              name: heatmapShowLegend
+              label: 显示图例
+              value: false
+              help: 是否显示热力图的颜色图例
+              if: "$get(showHeatmap).value === true"
     - group: proxy
       label: 代理配置
       formSchema:
@@ -159,7 +406,7 @@ spec:
           name: apiProxy
           label: Steam API 代理
           children:
-            - $formkit: checkbox
+            - $formkit: switch
               name: enabled
               id: apiProxyEnabled
               key: apiProxyEnabled
@@ -208,27 +455,3 @@ spec:
               validation: required
               if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'custom'"
 
-    - group: badge
-      label: 徽章配置
-      formSchema:
-        - $formkit: array
-          name: badgeMappings
-          label: 系统徽章图片映射
-          addLabel: 添加映射
-          help: "配置 Steam 系统徽章的图片 URL。badgeId 可在 Steam 徽章页面 URL 中查看（如 /badges/1 中的 1）"
-          children:
-            - $formkit: number
-              name: badgeId
-              label: Badge ID
-              validation: required
-              help: "Steam 徽章 ID"
-            - $formkit: text
-              name: name
-              label: 徽章名称
-              help: "便于识别（可选）"
-            - $formkit: text
-              name: imageUrl
-              label: 图片 URL
-              validation: required
-              help: "徽章图片完整地址，可从 Steam 页面右键复制"
-          value: []
