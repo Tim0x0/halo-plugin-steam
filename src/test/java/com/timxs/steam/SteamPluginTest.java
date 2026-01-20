@@ -7,6 +7,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
+import run.halo.app.extension.SchemeManager;
 import run.halo.app.plugin.PluginContext;
 
 import static org.mockito.Mockito.when;
@@ -19,6 +20,9 @@ class SteamPluginTest {
 
     @Mock
     CacheService cacheService;
+
+    @Mock
+    SchemeManager schemeManager;
 
     @InjectMocks
     SteamPlugin plugin;
