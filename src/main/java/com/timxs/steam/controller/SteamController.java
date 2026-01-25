@@ -73,7 +73,7 @@ public class SteamController implements CustomEndpoint {
 
     @Override
     public GroupVersion groupVersion() {
-        return new GroupVersion("api.steam.halo.run", "v1alpha1");
+        return new GroupVersion("api.steam.timxs.com", "v1alpha1");
     }
 
     private Mono<ServerResponse> getProfile(ServerRequest request) {

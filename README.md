@@ -117,7 +117,7 @@
 #### 获取用户资料
 
 ```
-GET /apis/api.steam.halo.run/v1alpha1/profile
+GET /apis/api.steam.timxs.com/v1alpha1/profile
 ```
 
 响应示例：
@@ -140,7 +140,7 @@ GET /apis/api.steam.halo.run/v1alpha1/profile
 #### 获取游戏库
 
 ```
-GET /apis/api.steam.halo.run/v1alpha1/games?page=1&size=20&sortBy=playtime_forever
+GET /apis/api.steam.timxs.com/v1alpha1/games?page=1&size=20&sortBy=playtime_forever
 ```
 
 参数：
@@ -170,7 +170,7 @@ GET /apis/api.steam.halo.run/v1alpha1/games?page=1&size=20&sortBy=playtime_forev
 #### 获取最近游玩
 
 ```
-GET /apis/api.steam.halo.run/v1alpha1/recent?limit=5
+GET /apis/api.steam.timxs.com/v1alpha1/recent?limit=5
 ```
 
 参数：
@@ -192,7 +192,7 @@ GET /apis/api.steam.halo.run/v1alpha1/recent?limit=5
 #### 获取统计数据
 
 ```
-GET /apis/api.steam.halo.run/v1alpha1/stats
+GET /apis/api.steam.timxs.com/v1alpha1/stats
 ```
 
 响应示例：
@@ -209,7 +209,7 @@ GET /apis/api.steam.halo.run/v1alpha1/stats
 #### 获取游戏成就进度
 
 ```
-GET /apis/api.steam.halo.run/v1alpha1/achievements/{appId}
+GET /apis/api.steam.timxs.com/v1alpha1/achievements/{appId}
 ```
 
 参数：
@@ -228,7 +228,7 @@ GET /apis/api.steam.halo.run/v1alpha1/achievements/{appId}
 #### 获取徽章信息
 
 ```
-GET /apis/api.steam.halo.run/v1alpha1/badges
+GET /apis/api.steam.timxs.com/v1alpha1/badges
 ```
 
 响应示例：

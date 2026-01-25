@@ -63,7 +63,7 @@ public class SteamConsoleController implements CustomEndpoint {
 
     @Override
     public GroupVersion groupVersion() {
-        return new GroupVersion("console.api.steam.halo.run", "v1alpha1");
+        return new GroupVersion("console.api.steam.timxs.com", "v1alpha1");
     }
 
     /**

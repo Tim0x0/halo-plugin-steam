@@ -15,6 +15,6 @@ metadata:
     rbac.authorization.halo.run/ui-permissions: |
       ["plugin:steam:public:view"]
 rules:
-  - apiGroups: [ "api.steam.halo.run" ]
+  - apiGroups: [ "api.steam.timxs.com" ]
     resources: [ "*" ]
     verbs: [ "get", "list" ]

@@ -187,27 +187,85 @@ public class PlaytimeTrackingServiceImpl implements PlaytimeTrackingService {
     }
 
     /**
-     * 处理跨天记录
+     * 处理跨天记录（加权平均分配算法）
+     * 健壮性改进：支持跨越任意天数，按时间窗口覆盖比例分配时长，确保总时长不丢失。
+     * 防御性设计：增加最大跨度限制，防止极端情况下循环过多。
      */
     private Mono<Void> splitCrossDayRecords(String steamId, OwnedGame game, int totalMinutes,
                                             Instant startTime, Instant endTime,
                                             LocalDate startDate, LocalDate endDate) {
-        // 计算第一天结束时间（午夜）
-        Instant midnightInstant = startDate.plusDays(1).atStartOfDay(ZONE_ID).toInstant();
-        
-        // 计算时间比例
-        long totalSeconds = endTime.getEpochSecond() - startTime.getEpochSecond();
-        long firstDaySeconds = midnightInstant.getEpochSecond() - startTime.getEpochSecond();
-        
-        // 按比例分配时长
-        int firstDayMinutes = (int) ((totalMinutes * firstDaySeconds) / totalSeconds);
-        int secondDayMinutes = totalMinutes - firstDayMinutes;
-        
-        log.debug("跨天游戏会话: {} 分钟拆分为 {} ({}) 和 {} ({})", 
-            totalMinutes, firstDayMinutes, startDate, secondDayMinutes, endDate);
-        
-        return createOrUpdateDailyRecord(steamId, game, startDate, firstDayMinutes, startTime, midnightInstant)
-            .then(createOrUpdateDailyRecord(steamId, game, endDate, secondDayMinutes, midnightInstant, endTime));
+        // 1. 计算总时间窗口的秒数（分母）
+        long totalWindowSeconds = java.time.Duration.between(startTime, endTime).getSeconds();
+
+        // 防御性检查：如果窗口时间异常，直接记在最后一天
+        if (totalWindowSeconds <= 0) {
+            return createOrUpdateDailyRecord(steamId, game, endDate, totalMinutes, startTime, endTime);
+        }
+
+        // 2. 熔断检查：防止跨度过大导致死循环或数据库压力过大
+        // 如果跨度超过 60 天，不再细分，直接丢弃每日明细（避免热力图单日数据爆炸），但外层逻辑仍会更新总时长快照
+        long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate);
+        if (daysBetween > 60) {
+            log.warn("跨天跨度过大 ({} 天), 跳过每日数据生成，仅更新总时长快照: steamId={}, appId={}, delta={}min",
+                daysBetween, steamId, game.getAppId(), totalMinutes);
+            return Mono.empty();
+        }
+
+        List<Mono<Void>> saveTasks = new java.util.ArrayList<>();
+        int allocatedMinutes = 0; // 记录已分配的分钟数，用于最后一天兜底
+
+        // 3. 遍历从开始日期到结束日期的每一天
+        LocalDate currentDate = startDate;
+        while (!currentDate.isAfter(endDate)) {
+            // 计算当前天 00:00 和 24:00 的 Instant
+            Instant dayStart = currentDate.atStartOfDay(ZONE_ID).toInstant();
+            Instant nextDayStart = currentDate.plusDays(1).atStartOfDay(ZONE_ID).toInstant();
+
+            // 4. 计算当前天与总时间窗口的 [交集] 时长
+            // 交集开始时间 = max(总窗口开始, 当天开始)
+            Instant overlapStart = (dayStart.isBefore(startTime)) ? startTime : dayStart;
+            // 交集结束时间 = min(总窗口结束, 当天结束)
+            Instant overlapEnd = (nextDayStart.isAfter(endTime)) ? endTime : nextDayStart;
+
+            long overlapSeconds = java.time.Duration.between(overlapStart, overlapEnd).getSeconds();
+
+            // 只有当有交集时才处理
+            if (overlapSeconds > 0) {
+                int minutesForCurrentDay;
+
+                // 5. 分配时长
+                if (currentDate.equals(endDate)) {
+                    // 【关键步骤】最后一天：使用剩余的所有时长，确保总和守恒
+                    minutesForCurrentDay = totalMinutes - allocatedMinutes;
+                } else {
+                    // 中间天/第一天：按时间比例分配
+                    // 公式：总增量 * (当天占窗口的秒数 / 总窗口秒数)
+                    double ratio = (double) overlapSeconds / totalWindowSeconds;
+                    minutesForCurrentDay = (int) Math.round(totalMinutes * ratio);
+
+                    // 累计已分配时长
+                    allocatedMinutes += minutesForCurrentDay;
+                }
+
+                // 6. 记录任务
+                if (minutesForCurrentDay > 0) {
+                    saveTasks.add(createOrUpdateDailyRecord(
+                        steamId,
+                        game,
+                        currentDate,
+                        minutesForCurrentDay,
+                        overlapStart,
+                        overlapEnd
+                    ));
+                }
+            }
+
+            // 移动到下一天
+            currentDate = currentDate.plusDays(1);
+        }
+
+        // 7. 串行执行所有保存操作，避免数据库并发压力
+        return Flux.concat(saveTasks).then();
     }
 
     /**

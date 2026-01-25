@@ -72,7 +72,7 @@ spec:
                 - $el: p
                   children: "2. 如果国内服务器请求失败，请在「代理配置」中设置 HTTP 代理或 API 反代"
         - $formkit: verificationForm
-          action: /apis/console.api.steam.halo.run/v1alpha1/verify
+          action: /apis/console.api.steam.timxs.com/v1alpha1/verify
           label: 验证配置
           children:
             - $formkit: password
@@ -120,7 +120,7 @@ spec:
                   const oldText = btnText.textContent;
                   btnText.textContent = '刷新中...';
                   try {
-                    const response = await fetch('/apis/console.api.steam.halo.run/v1alpha1/refresh', {
+                    const response = await fetch('/apis/console.api.steam.timxs.com/v1alpha1/refresh', {
                       method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',
@@ -306,7 +306,7 @@ spec:
                   const oldText = btnText.textContent;
                   btnText.textContent = '追踪中...';
                   try {
-                    const response = await fetch('/apis/console.api.steam.halo.run/v1alpha1/heatmap/track', {
+                    const response = await fetch('/apis/console.api.steam.timxs.com/v1alpha1/heatmap/track', {
                       method: 'POST',
                       headers: {
                         'Content-Type': 'application/json',

@@ -14,7 +14,7 @@ import java.time.Instant;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-@GVK(group = "steam.halo.run", version = "v1alpha1",
+@GVK(group = "steam.timxs.com", version = "v1alpha1",
     kind = "PlaytimeSnapshot", plural = "playtimesnapshots",
     singular = "playtimesnapshot")
 public class PlaytimeSnapshot extends AbstractExtension {

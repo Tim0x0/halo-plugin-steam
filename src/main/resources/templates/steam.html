@@ -1063,7 +1063,7 @@ async function fetchHeatmapData() {
         return `${year}-${month}-${day}`;
     };
     
-    const url = `/apis/api.steam.halo.run/v1alpha1/heatmap/records?startDate=${formatDate(startDate)}&endDate=${formatDate(endDate)}&page=1&size=${heatmapConfig.days}`;
+    const url = `/apis/api.steam.timxs.com/v1alpha1/heatmap/records?startDate=${formatDate(startDate)}&endDate=${formatDate(endDate)}&page=1&size=${heatmapConfig.days}`;
     
     const response = await fetch(url);
     if (!response.ok) {
