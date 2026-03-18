@@ -619,31 +619,6 @@
             color: var(--steam-text-light);
         }
 
-        .heatmap-legend {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 4px; 
-            font-size: 12px;
-            color: var(--steam-text-light);
-        }
-
-        .heatmap-legend__label {
-            padding: 0 4px;
-        }
-
-        .heatmap-legend__colors {
-            display: flex;
-            gap: 3px;
-        }
-
-        .heatmap-legend__color {
-            width: 10px;
-            height: 10px;
-            border-radius: 2px;
-            border: 1px solid rgba(27, 40, 56, 0.5);
-        }
-
         .heatmap-empty,
         .heatmap-error {
             padding: 40px 20px;
@@ -838,14 +813,6 @@
                 <div class="empty-state__title">热力图加载失败</div>
                 <div class="empty-state__desc">无法获取热力图数据，请稍后重试</div>
             </div>
-        </div>
-        <!-- 色卡图例 -->
-        <div class="heatmap-legend" id="heatmap-legend" style="display: none;">
-            <span class="heatmap-legend__label">少</span>
-            <div class="heatmap-legend__colors" id="heatmap-legend-colors">
-                <!-- 动态生成色块 -->
-            </div>
-            <span class="heatmap-legend__label">多</span>
         </div>
     </section>
 
@@ -1042,8 +1009,8 @@ function loadECharts() {
             return;
         }
         const script = document.createElement('script');
-        // 使用国内 CDN
-        script.src = 'https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js';
+        // 使用配置的 ECharts 地址
+        script.src = /*[[${echartsUrl}]]*/ 'https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js';
         script.onload = () => resolve(window.echarts);
         script.onerror = reject;
         document.head.appendChild(script);
@@ -1218,29 +1185,7 @@ async function renderHeatmap() {
         };
         
         chart.setOption(option);
-        
-        // 生成色卡图例
-        const legendEl = document.getElementById('heatmap-legend');
-        const legendColorsEl = document.getElementById('heatmap-legend-colors');
-        legendColorsEl.innerHTML = '';
-        
-        // 添加空白色块
-        const emptyBlock = document.createElement('div');
-        emptyBlock.className = 'heatmap-legend__color';
-        emptyBlock.style.backgroundColor = emptyColor;
-        legendColorsEl.appendChild(emptyBlock);
-        
-        // 添加渐变色块
-        colors.forEach(color => {
-            const colorBlock = document.createElement('div');
-            colorBlock.className = 'heatmap-legend__color';
-            colorBlock.style.backgroundColor = color;
-            legendColorsEl.appendChild(colorBlock);
-        });
-        
-        // 显示图例
-        legendEl.style.display = 'flex';
-        
+
         // 响应式
         window.addEventListener('resize', () => {
             chart.resize();

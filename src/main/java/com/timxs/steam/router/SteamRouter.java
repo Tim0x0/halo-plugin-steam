@@ -20,6 +20,7 @@ import run.halo.app.theme.router.UrlContextListResult;
 
 import java.util.Map;
 
+import static java.util.Map.entry;
 import static run.halo.app.theme.router.PageUrlUtils.totalPage;
 
 /**
@@ -45,17 +46,18 @@ public class SteamRouter {
     private Mono<ServerResponse> handleSteamPage(ServerRequest request) {
         return templateNameResolver.resolveTemplateNameOrDefault(request.exchange(), "steam")
                 .flatMap(templateName -> ServerResponse.ok().render(templateName,
-                        Map.of(
-                            ModelConst.TEMPLATE_ID, templateName,
-                            "title", settingService.getPageTitle(),
-                            "gamesLimit", settingService.getGamesLimit(),
-                            "recentGamesLimit", settingService.getRecentGamesLimit(),
-                            "enableGameLink", settingService.isEnableGameLink(),
-                            "games", getGamesList(request),
-                            "showHeatmap", settingService.isShowHeatmap(),
-                            "heatmapDays", settingService.getHeatmapDisplayDays(),
-                            "heatmapColorTheme", settingService.getHeatmapColorTheme(),
-                            "heatmapShowLegend", settingService.isShowHeatmapLegend()
+                        Map.ofEntries(
+                            entry(ModelConst.TEMPLATE_ID, templateName),
+                            entry("title", settingService.getPageTitle()),
+                            entry("gamesLimit", settingService.getGamesLimit()),
+                            entry("recentGamesLimit", settingService.getRecentGamesLimit()),
+                            entry("enableGameLink", settingService.isEnableGameLink()),
+                            entry("games", getGamesList(request)),
+                            entry("showHeatmap", settingService.isShowHeatmap()),
+                            entry("heatmapDays", settingService.getHeatmapDisplayDays()),
+                            entry("heatmapColorTheme", settingService.getHeatmapColorTheme()),
+                            entry("heatmapShowLegend", settingService.isShowHeatmapLegend()),
+                            entry("echartsUrl", settingService.getEchartsUrl())
                         )));
     }
 

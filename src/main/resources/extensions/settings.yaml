@@ -385,6 +385,12 @@ spec:
               value: false
               help: 是否显示热力图的颜色图例
               if: "$get(showHeatmap).value === true"
+            - $formkit: text
+              name: echartsUrl
+              label: ECharts JS 地址
+              value: https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js
+              help: "热力图依赖 ECharts，可替换为自有服务器或其他 CDN 地址。默认：https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"
+              if: "$get(showHeatmap).value === true"
     - group: proxy
       label: 代理配置
       formSchema:

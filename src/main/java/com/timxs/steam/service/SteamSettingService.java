@@ -441,6 +441,8 @@ public class SteamSettingService {
         private String heatmapColorTheme = "steam";
         /** 是否显示图例 */
         private Boolean heatmapShowLegend = false;
+        /** ECharts JS 地址 */
+        private String echartsUrl = "https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js";
     }
 
     /**
@@ -504,8 +506,23 @@ public class SteamSettingService {
                     if (config.getHeatmapDisplay() == null) {
                         return false;
                     }
-                    return config.getHeatmapDisplay().getHeatmapShowLegend() != null 
+                    return config.getHeatmapDisplay().getHeatmapShowLegend() != null
                             && config.getHeatmapDisplay().getHeatmapShowLegend();
+                });
+    }
+
+    /**
+     * 获取 ECharts JS 地址
+     */
+    public Mono<String> getEchartsUrl() {
+        return getStatsConfig()
+                .map(config -> {
+                    if (config.getHeatmapDisplay() == null) {
+                        return "https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js";
+                    }
+                    return config.getHeatmapDisplay().getEchartsUrl() != null
+                            ? config.getHeatmapDisplay().getEchartsUrl()
+                            : "https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js";
                 });
     }
 
