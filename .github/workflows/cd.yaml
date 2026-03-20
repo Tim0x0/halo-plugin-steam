@@ -14,7 +14,7 @@ jobs:
       contents: write
     with:
       java-version: 21
-      node-version: 20
+      node-version: 22
       pnpm-version: 9
       app-id: app-0ojqyzfh
       ui-path: ui
