@@ -536,55 +536,69 @@ public class SteamServiceImpl implements SteamService {
                         return Mono.just(List.of());
                     });
 
-            // 3. 获取 Store 图片 CDN 域名（为空时返回 null，跳过 CDN 替换）
-            Mono<String> storeImageCdn = settingService.getStoreImageCdn()
-                    .defaultIfEmpty(null);
-
-            return Mono.zip(detailMono, gamesMono, storeImageCdn)
+            // 3. 组合 detail 和 games，然后应用 CDN 替换
+            return Mono.zip(detailMono, gamesMono)
                     .flatMap(tuple -> {
                         GameDetail detail = tuple.getT1();
                         List<OwnedGame> ownedGames = tuple.getT2();
-                        String cdnDomain = tuple.getT3();
 
-                        // 应用图片 CDN 域名替换
-                        if (cdnDomain != null && detail.getHeaderImage() != null) {
-                            detail.setHeaderImage(SteamSettingService.replaceStoreImageDomain(detail.getHeaderImage(), cdnDomain));
-                        }
-
-                        // 检查是否拥有该游戏
-                        OwnedGame ownedGame = ownedGames.stream()
-                                .filter(g -> appId.equals(g.getAppId()))
-                                .findFirst()
-                                .orElse(null);
-
-                        if (ownedGame != null) {
-                            detail.setOwned(true);
-                            detail.setPlaytimeForever(ownedGame.getPlaytimeForever());
-                            detail.setPlaytimeFormatted(OwnedGame.formatPlaytime(
-                                    ownedGame.getPlaytimeForever() != null ? ownedGame.getPlaytimeForever() : 0));
-                            detail.setRtimeLastPlayed(ownedGame.getRtimeLastPlayed());
-                            detail.setLastPlayedFormatted(ownedGame.getLastPlayedFormatted());
-
-                            // 获取成就数据
-                            return steamApiClient.getPlayerAchievements(steamId, appId)
-                                    .map(progress -> {
-                                        detail.setAchievedCount(progress.getAchievedCount());
-                                        detail.setTotalAchievements(progress.getTotalAchievements());
-                                        detail.setAchievementProgress(progress.getProgressText());
-                                        return detail;
-                                    })
-                                    .onErrorResume(e -> {
-                                        log.debug("获取游戏 {} 成就失败: {}", appId, e.getMessage());
-                                        return Mono.just(detail);
-                                    });
-                        }
-
-                        return Mono.just(detail);
+                        // 应用图片 CDN 域名替换（可选操作）
+                        return applyCdnIfConfigured(detail)
+                                .flatMap(detailWithCdn -> enrichWithOwnedData(detailWithCdn, ownedGames, steamId, appId));
                     })
                     .flatMap(detail ->
                             cacheService.put(cacheKey, detail, ttl)
                                     .thenReturn(detail)
                     );
         }));
+    }
+
+    /**
+     * 如果配置了 CDN，则替换图片 URL
+     */
+    private Mono<GameDetail> applyCdnIfConfigured(GameDetail detail) {
+        return settingService.getStoreImageCdn()
+                .map(cdnDomain -> {
+                    if (detail.getHeaderImage() != null) {
+                        detail.setHeaderImage(SteamSettingService.replaceStoreImageDomain(detail.getHeaderImage(), cdnDomain));
+                    }
+                    return detail;
+                })
+                .switchIfEmpty(Mono.just(detail));  // 没有配置 CDN，直接返回原 detail
+    }
+
+    /**
+     * 补充拥有状态和成就数据
+     */
+    private Mono<GameDetail> enrichWithOwnedData(GameDetail detail, List<OwnedGame> ownedGames, String steamId, Long appId) {
+        // 检查是否拥有该游戏
+        OwnedGame ownedGame = ownedGames.stream()
+                .filter(g -> appId.equals(g.getAppId()))
+                .findFirst()
+                .orElse(null);
+
+        if (ownedGame != null) {
+            detail.setOwned(true);
+            detail.setPlaytimeForever(ownedGame.getPlaytimeForever());
+            detail.setPlaytimeFormatted(OwnedGame.formatPlaytime(
+                    ownedGame.getPlaytimeForever() != null ? ownedGame.getPlaytimeForever() : 0));
+            detail.setRtimeLastPlayed(ownedGame.getRtimeLastPlayed());
+            detail.setLastPlayedFormatted(ownedGame.getLastPlayedFormatted());
+
+            // 获取成就数据
+            return steamApiClient.getPlayerAchievements(steamId, appId)
+                    .map(progress -> {
+                        detail.setAchievedCount(progress.getAchievedCount());
+                        detail.setTotalAchievements(progress.getTotalAchievements());
+                        detail.setAchievementProgress(progress.getProgressText());
+                        return detail;
+                    })
+                    .onErrorResume(e -> {
+                        log.debug("获取游戏 {} 成就失败: {}", appId, e.getMessage());
+                        return Mono.just(detail);
+                    });
+        }
+
+        return Mono.just(detail);
     }
 }

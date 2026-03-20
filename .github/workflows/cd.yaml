@@ -15,3 +15,4 @@ jobs:
     with:
       java-version: 21
       app-id: app-0ojqyzfh
+      ui-path: ui
