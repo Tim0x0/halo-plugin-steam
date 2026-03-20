@@ -251,6 +251,7 @@ public class SteamSettingService {
     public static class ImageProxyConfig {
         private String headerImageTemplate;
         private String iconImageTemplate;
+        private String storeImageCdn;
     }
 
     /**
@@ -304,13 +305,52 @@ public class SteamSettingService {
     public Mono<String> getIconImageTemplate() {
         return getProxyConfig()
                 .map(config -> {
-                    if (config.getImageProxy() != null 
-                            && config.getImageProxy().getIconImageTemplate() != null 
+                    if (config.getImageProxy() != null
+                            && config.getImageProxy().getIconImageTemplate() != null
                             && !config.getImageProxy().getIconImageTemplate().isBlank()) {
                         return config.getImageProxy().getIconImageTemplate();
                     }
                     return DEFAULT_ICON_TEMPLATE;
                 });
+    }
+
+    /**
+     * 获取 Store 图片 CDN 域名
+     * 留空则返回空 Mono，表示使用原始 URL
+     */
+    public Mono<String> getStoreImageCdn() {
+        return getProxyConfig()
+                .flatMap(config -> {
+                    if (config.getImageProxy() != null
+                            && config.getImageProxy().getStoreImageCdn() != null
+                            && !config.getImageProxy().getStoreImageCdn().isBlank()) {
+                        return Mono.just(config.getImageProxy().getStoreImageCdn());
+                    }
+                    return Mono.empty();
+                });
+    }
+
+    /**
+     * 替换 Store 图片 URL 的域名为 CDN 域名
+     * @param originalUrl 原 Store 图片 URL
+     * @param cdnDomain CDN 域名（如 https://my-cdn.com）
+     * @return 替换后的 URL
+     */
+    public static String replaceStoreImageDomain(String originalUrl, String cdnDomain) {
+        if (originalUrl == null || cdnDomain == null || cdnDomain.isBlank()) {
+            return originalUrl;
+        }
+        try {
+            java.net.URL url = new java.net.URL(originalUrl);
+            String path = url.getFile();
+            String query = url.getQuery();
+            String newPath = query == null ? path : path + "?" + query;
+            // 确保 CDN 域名不以 / 结尾
+            String domain = cdnDomain.endsWith("/") ? cdnDomain.substring(0, cdnDomain.length() - 1) : cdnDomain;
+            return domain + newPath;
+        } catch (Exception e) {
+            return originalUrl;
+        }
     }
 
     /**

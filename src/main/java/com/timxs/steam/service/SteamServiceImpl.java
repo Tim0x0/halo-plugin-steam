@@ -536,10 +536,20 @@ public class SteamServiceImpl implements SteamService {
                         return Mono.just(List.of());
                     });
 
-            return Mono.zip(detailMono, gamesMono)
+            // 3. 获取 Store 图片 CDN 域名（为空时返回 null，跳过 CDN 替换）
+            Mono<String> storeImageCdn = settingService.getStoreImageCdn()
+                    .defaultIfEmpty(null);
+
+            return Mono.zip(detailMono, gamesMono, storeImageCdn)
                     .flatMap(tuple -> {
                         GameDetail detail = tuple.getT1();
                         List<OwnedGame> ownedGames = tuple.getT2();
+                        String cdnDomain = tuple.getT3();
+
+                        // 应用图片 CDN 域名替换
+                        if (cdnDomain != null && detail.getHeaderImage() != null) {
+                            detail.setHeaderImage(SteamSettingService.replaceStoreImageDomain(detail.getHeaderImage(), cdnDomain));
+                        }
 
                         // 检查是否拥有该游戏
                         OwnedGame ownedGame = ownedGames.stream()

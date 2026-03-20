@@ -438,6 +438,11 @@ spec:
               label: 游戏图标加速地址
               value: https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{hash}.jpg
               help: "默认值：https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{hash}.jpg。支持占位符: {appid}, {hash}"
+            - $formkit: text
+              name: storeImageCdn
+              label: 游戏卡片封面图加速域名（实验性）
+              value: ""
+              help: "留空使用 Steam 原始地址。填入 CDN 域名（如 https://my-cdn.com）后将替换原图片 URL 的域名部分"
         - $formkit: group
           name: apiProxy
           label: Steam API 代理

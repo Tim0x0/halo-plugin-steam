@@ -20,6 +20,8 @@
 - 数据缓存机制，减少 API 调用
 - 支持 Steam API 代理配置
 - 支持自定义图片 CDN 加速
+- 富文本编辑器 Steam 游戏卡片扩展（插入 App ID 即可展示游戏信息卡片）
+- 游戏卡片多语言支持（自动检测浏览器语言或手动指定）
 - 提供独立的 Steam 页面（`/steam`）
 - 提供 Finder API，方便主题集成
 - 提供 REST API，支持前端异步获取数据
@@ -222,6 +224,35 @@ GET /apis/api.steam.timxs.com/v1alpha1/achievements/{appId}
   "gameName": "Counter-Strike 2",
   "achievedCount": 50,
   "totalAchievements": 167
+}
+```
+
+#### 获取游戏详情
+
+```
+GET /apis/api.steam.timxs.com/v1alpha1/game-detail/{appId}?lang=schinese
+```
+
+参数：
+- `appId`：游戏 ID
+- `lang`：语言代码（`schinese`、`tchinese`、`english`、`japanese`、`koreana`、`german`、`french`），可选，设置为"自动"时由前端传入
+
+响应示例：
+```json
+{
+  "appId": 730,
+  "name": "Counter-Strike 2",
+  "headerImage": "https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg",
+  "shortDescription": "...",
+  "developers": "Valve",
+  "genres": "动作, 免费",
+  "isFree": true,
+  "priceFormatted": "免费",
+  "releaseDate": "2012 年 8 月 21 日",
+  "storeUrl": "https://store.steampowered.com/app/730",
+  "owned": true,
+  "playtimeFormatted": "200h 30m",
+  "achievementProgress": "50/167"
 }
 ```
 

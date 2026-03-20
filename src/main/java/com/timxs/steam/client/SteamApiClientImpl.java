@@ -439,6 +439,7 @@ public class SteamApiClientImpl implements SteamApiClient {
     private Mono<WebClient> getStoreWebClient() {
         return settingService.getApiProxyConfig()
                 .map(proxyConfig -> {
+                    String baseUrl = getStoreBaseUrl(proxyConfig);
                     if (proxyConfig.getEnabled() != null && proxyConfig.getEnabled()
                             && "http".equals(proxyConfig.getProxyType())
                             && proxyConfig.getHttpHost() != null && !proxyConfig.getHttpHost().isBlank()
@@ -449,14 +450,31 @@ public class SteamApiClientImpl implements SteamApiClient {
                                         .host(proxyConfig.getHttpHost())
                                         .port(proxyConfig.getHttpPort()));
                         return WebClient.builder()
-                                .baseUrl(STEAM_STORE_API)
+                                .baseUrl(baseUrl)
                                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                                 .build();
                     }
                     return WebClient.builder()
-                            .baseUrl(STEAM_STORE_API)
+                            .baseUrl(baseUrl)
                             .build();
                 });
+    }
+
+    /**
+     * 获取 Store API 基础地址
+     * 自定义 API 地址时，将路径前缀改为 /store 以区分 Steam Web API 和 Store API
+     */
+    private String getStoreBaseUrl(ApiProxyConfig proxyConfig) {
+        if (proxyConfig.getEnabled() != null && proxyConfig.getEnabled()
+                && "custom".equals(proxyConfig.getProxyType())
+                && proxyConfig.getCustomApiUrl() != null && !proxyConfig.getCustomApiUrl().isBlank()) {
+            String customUrl = proxyConfig.getCustomApiUrl().trim();
+            if (customUrl.endsWith("/")) {
+                customUrl = customUrl.substring(0, customUrl.length() - 1);
+            }
+            return customUrl;
+        }
+        return STEAM_STORE_API;
     }
 
     private Mono<GameDetail> parseStoreResponse(String body, Long appId, String language) {
