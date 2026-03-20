@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id "com.github.node-gradle.node" version "7.1.0"
     id "io.freefair.lombok" version "8.13"
     id "run.halo.plugin.devtools" version "0.6.1"
 }
@@ -34,7 +35,25 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 21
 }
 
+node {
+    nodeProjectDir = file("${project.projectDir}/ui")
+}
+
+tasks.register('installDepsForUI', PnpmTask) {
+    args = ['install']
+}
+
+tasks.register('buildFrontend', PnpmTask) {
+    args = ['build']
+    dependsOn('installDepsForUI')
+}
+
+build {
+    tasks.named('compileJava').configure {
+        dependsOn('buildFrontend')
+    }
+}
+
 halo {
     version = '2.22'
 }
-

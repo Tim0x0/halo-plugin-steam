@@ -2,6 +2,7 @@ package com.timxs.steam.controller;
 
 import com.timxs.steam.model.AchievementProgress;
 import com.timxs.steam.model.BadgeInfo;
+import com.timxs.steam.model.GameDetail;
 import com.timxs.steam.model.OwnedGame;
 import com.timxs.steam.model.RecentGame;
 import com.timxs.steam.model.SteamProfile;
@@ -68,6 +69,12 @@ public class SteamController implements CustomEndpoint {
                                 .description("获取 Steam 徽章信息")
                                 .tag(tag)
                                 .response(responseBuilder().implementation(BadgeInfo.class)))
+                .GET("/game-detail/{appId}", this::getGameDetail,
+                        builder -> builder.operationId("GetGameDetail")
+                                .description("获取 Steam 游戏详情")
+                                .tag(tag)
+                                .parameter(parameterBuilder().name("appId").description("游戏 ID").required(true))
+                                .response(responseBuilder().implementation(GameDetail.class)))
                 .build();
     }
 
@@ -116,6 +123,17 @@ public class SteamController implements CustomEndpoint {
     private Mono<ServerResponse> getBadges(ServerRequest request) {
         return steamService.getBadges()
                 .flatMap(badges -> ServerResponse.ok().bodyValue(badges))
+                .switchIfEmpty(ServerResponse.notFound().build());
+    }
+
+    private Mono<ServerResponse> getGameDetail(ServerRequest request) {
+        Long appId = parseLongOrNull(request.pathVariable("appId"));
+        if (appId == null) {
+            return ServerResponse.badRequest().build();
+        }
+        String lang = request.queryParam("lang").orElse(null);
+        return steamService.getGameDetail(appId, lang)
+                .flatMap(detail -> ServerResponse.ok().bodyValue(detail))
                 .switchIfEmpty(ServerResponse.notFound().build());
     }
 

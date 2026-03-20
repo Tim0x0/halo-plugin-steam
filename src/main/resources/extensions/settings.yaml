@@ -391,6 +391,36 @@ spec:
               value: https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js
               help: "热力图依赖 ECharts，可替换为自有服务器或其他 CDN 地址。默认：https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"
               if: "$get(showHeatmap).value === true"
+    - group: editor
+      label: 编辑器配置
+      formSchema:
+        - $formkit: text
+          name: darkModeSelector
+          label: 暗色模式选择器
+          value: "html.dark"
+          help: "用于游戏卡片自适应主题自动检测暗色模式。填写暗色模式激活时页面上存在的 CSS 选择器。常见值：html.dark、html[data-color-scheme=dark]、html[data-theme=dark]。可通过浏览器 F12 查看 html 元素的属性变化来确定。"
+        - $formkit: select
+          name: storeLanguage
+          label: 游戏卡片语言
+          value: auto
+          options:
+            - label: "自动（浏览器语言）"
+              value: auto
+            - label: "简体中文"
+              value: schinese
+            - label: "繁體中文"
+              value: tchinese
+            - label: "English"
+              value: english
+            - label: "日本語"
+              value: japanese
+            - label: "한국어"
+              value: koreana
+            - label: "Deutsch"
+              value: german
+            - label: "Français"
+              value: french
+          help: "Steam 游戏卡片显示的语言和价格货币。「自动」根据访客浏览器语言决定。修改后需刷新缓存或等待缓存过期后生效"    
     - group: proxy
       label: 代理配置
       formSchema:
@@ -460,4 +490,6 @@ spec:
               help: "替换 api.steampowered.com 的地址。修改后需刷新缓存或等待缓存过期后生效"
               validation: required
               if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'custom'"
+
+    
 

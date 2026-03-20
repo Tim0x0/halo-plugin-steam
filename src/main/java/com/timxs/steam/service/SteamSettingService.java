@@ -17,6 +17,7 @@ public class SteamSettingService {
     private static final String GROUP_PROXY = "proxy";
     private static final String GROUP_BADGE = "badge";
     private static final String GROUP_STATS = "stats";
+    private static final String GROUP_EDITOR = "editor";
     
     // 图片 URL 模板常量（公开供其他类使用）
     public static final String DEFAULT_HEADER_TEMPLATE = "https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg";
@@ -524,6 +525,70 @@ public class SteamSettingService {
                             ? config.getHeatmapDisplay().getEchartsUrl()
                             : "https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js";
                 });
+    }
+
+    /**
+     * 编辑器配置类
+     */
+    @lombok.Data
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
+    public static class EditorConfig {
+        private String darkModeSelector = "html.dark";
+        /** Steam 商店语言（如 schinese, english, auto） */
+        private String storeLanguage = "auto";
+    }
+
+    /**
+     * 根据 Steam 语言代码获取对应的国家/地区代码（用于 cc 参数）
+     */
+    public static String getCountryCode(String language) {
+        if (language == null) return null;
+        return switch (language) {
+            case "schinese" -> "cn";
+            case "tchinese" -> "tw";
+            case "english" -> "us";
+            case "japanese" -> "jp";
+            case "koreana" -> "kr";
+            case "german" -> "de";
+            case "french" -> "fr";
+            default -> null;
+        };
+    }
+
+    /**
+     * 根据 Steam 语言代码获取本地化的"免费"文本
+     */
+    public static String getFreeText(String language) {
+        if (language == null) return "Free";
+        return switch (language) {
+            case "schinese" -> "免费";
+            case "tchinese" -> "免費";
+            case "english" -> "Free";
+            case "japanese" -> "無料";
+            case "koreana" -> "무료";
+            case "german" -> "Kostenlos";
+            case "french" -> "Gratuit";
+            default -> "Free";
+        };
+    }
+
+    /**
+     * 获取编辑器配置
+     */
+    public Mono<EditorConfig> getEditorConfig() {
+        return settingFetcher.fetch(GROUP_EDITOR, EditorConfig.class)
+                .switchIfEmpty(Mono.just(new EditorConfig()));
+    }
+
+    /**
+     * 获取暗色模式选择器
+     */
+    public Mono<String> getDarkModeSelector() {
+        return getEditorConfig()
+                .map(config -> config.getDarkModeSelector() != null
+                        ? config.getDarkModeSelector()
+                        : "html.dark");
     }
 
 }

@@ -27,6 +27,7 @@ public class SteamServiceImpl implements SteamService {
     private static final String CACHE_KEY_GAMES = "steam:games";
     private static final String CACHE_KEY_RECENT = "steam:recent";
     private static final String CACHE_KEY_BADGES = "steam:badges";
+    private static final String CACHE_KEY_GAME_DETAIL_PREFIX = "steam:game-detail:";
 
     private final SteamApiClient steamApiClient;
     private final CacheService cacheService;
@@ -493,5 +494,87 @@ public class SteamServiceImpl implements SteamService {
     @lombok.Data
     private static class RecentGamesList {
         private List<RecentGame> games;
+    }
+
+    @Override
+    public Mono<GameDetail> getGameDetail(Long appId, String language) {
+        return Mono.zip(settingService.getConfig(), settingService.getEditorConfig())
+                .flatMap(tuple -> {
+                    var config = tuple.getT1();
+                    var editorConfig = tuple.getT2();
+                    int ttl = config.getCacheTtlMinutes() != null ? config.getCacheTtlMinutes() : 10;
+                    String steamId = config.getSteamId();
+
+                    // 解析最终语言：非 auto 用配置值，auto 用前端传来的语言
+                    String storeLanguage = editorConfig.getStoreLanguage() != null
+                            ? editorConfig.getStoreLanguage() : "auto";
+                    String resolvedLanguage = "auto".equals(storeLanguage)
+                            ? (language != null && !language.isBlank() ? language : "english")
+                            : storeLanguage;
+
+                    String cacheKey = CACHE_KEY_GAME_DETAIL_PREFIX + appId + ":" + resolvedLanguage;
+                    return cacheService.get(cacheKey, GameDetail.class)
+                            .switchIfEmpty(fetchAndCacheGameDetail(appId, steamId, ttl, cacheKey, resolvedLanguage));
+                });
+    }
+
+    private Mono<GameDetail> fetchAndCacheGameDetail(Long appId, String steamId, int ttl, String cacheKey, String language) {
+        return singleflight(cacheKey, Mono.defer(() -> {
+            log.debug("从 Steam API 获取游戏详情: appId={}", appId);
+
+            // 1. 获取 Store API 基础数据
+            Mono<GameDetail> detailMono = steamApiClient.getGameDetail(appId, language);
+
+            // 2. 获取拥有的游戏列表（复用缓存）
+            Mono<List<OwnedGame>> gamesMono = cacheService.get(CACHE_KEY_GAMES, GamesList.class)
+                    .map(GamesList::getGames)
+                    .switchIfEmpty(
+                        steamApiClient.getOwnedGames(steamId, true, true)
+                    )
+                    .onErrorResume(e -> {
+                        log.debug("获取游戏库失败，跳过个人数据: {}", e.getMessage());
+                        return Mono.just(List.of());
+                    });
+
+            return Mono.zip(detailMono, gamesMono)
+                    .flatMap(tuple -> {
+                        GameDetail detail = tuple.getT1();
+                        List<OwnedGame> ownedGames = tuple.getT2();
+
+                        // 检查是否拥有该游戏
+                        OwnedGame ownedGame = ownedGames.stream()
+                                .filter(g -> appId.equals(g.getAppId()))
+                                .findFirst()
+                                .orElse(null);
+
+                        if (ownedGame != null) {
+                            detail.setOwned(true);
+                            detail.setPlaytimeForever(ownedGame.getPlaytimeForever());
+                            detail.setPlaytimeFormatted(OwnedGame.formatPlaytime(
+                                    ownedGame.getPlaytimeForever() != null ? ownedGame.getPlaytimeForever() : 0));
+                            detail.setRtimeLastPlayed(ownedGame.getRtimeLastPlayed());
+                            detail.setLastPlayedFormatted(ownedGame.getLastPlayedFormatted());
+
+                            // 获取成就数据
+                            return steamApiClient.getPlayerAchievements(steamId, appId)
+                                    .map(progress -> {
+                                        detail.setAchievedCount(progress.getAchievedCount());
+                                        detail.setTotalAchievements(progress.getTotalAchievements());
+                                        detail.setAchievementProgress(progress.getProgressText());
+                                        return detail;
+                                    })
+                                    .onErrorResume(e -> {
+                                        log.debug("获取游戏 {} 成就失败: {}", appId, e.getMessage());
+                                        return Mono.just(detail);
+                                    });
+                        }
+
+                        return Mono.just(detail);
+                    })
+                    .flatMap(detail ->
+                            cacheService.put(cacheKey, detail, ttl)
+                                    .thenReturn(detail)
+                    );
+        }));
     }
 }

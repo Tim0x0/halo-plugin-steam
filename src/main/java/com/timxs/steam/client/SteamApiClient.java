@@ -2,6 +2,7 @@ package com.timxs.steam.client;
 
 import com.timxs.steam.model.AchievementProgress;
 import com.timxs.steam.model.BadgeInfo;
+import com.timxs.steam.model.GameDetail;
 import com.timxs.steam.model.OwnedGame;
 import com.timxs.steam.model.PlayerSummary;
 import com.timxs.steam.model.RecentGame;
@@ -56,4 +57,11 @@ public interface SteamApiClient {
      * @return 验证结果，包含详细错误信息
      */
     Mono<ValidationResult> validateApiKey(String apiKey, String steamId);
+
+    /**
+     * 获取游戏详情（来自 Steam Store API）
+     * @param appId 游戏 ID
+     * @param language Steam 语言代码（如 schinese, english）
+     */
+    Mono<GameDetail> getGameDetail(Long appId, String language);
 }
