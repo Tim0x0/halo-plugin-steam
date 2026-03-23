@@ -6,7 +6,7 @@
 
 在 Halo 博客中展示 Steam 用户资料、游戏库、最近游玩记录和徽章信息。
 
-📖 [使用教程](docs/usage-guide.md) | 🎮 [在线演示](https://blog.timxs.com/steam)
+📖 [使用教程](docs/usage-guide.md) | 📡 [Steam API 技术参考](docs/steam-api-reference.md) | 🎮 [在线演示](https://blog.timxs.com/steam)
 
 ![预览](docs/doc_sample1.png)
 
