@@ -318,6 +318,7 @@ public class SteamServiceImpl implements SteamService {
             log.debug("从 Steam API 获取最近游玩: steamId={}", steamId);
             // 请求全部最近游玩的游戏（不限制数量），显示时再截取
             return steamApiClient.getRecentlyPlayedGames(steamId, 0)
+                    .flatMap(games -> enrichMissingGameNames(games))
                     .flatMap(games -> {
                         log.debug("最近游玩获取成功: {} 款游戏", games.size());
                         RecentGamesList gamesList = new RecentGamesList();
@@ -326,6 +327,63 @@ public class SteamServiceImpl implements SteamService {
                                 .thenReturn(games);
                     });
         }));
+    }
+
+    /**
+     * 补全缺失的游戏名称（通过 Store API）
+     */
+    private Mono<List<RecentGame>> enrichMissingGameNames(List<RecentGame> games) {
+        if (games == null || games.isEmpty()) {
+            return Mono.just(games);
+        }
+
+        // 找出 name 为空的游戏
+        List<RecentGame> emptyNameGames = games.stream()
+                .filter(game -> game.getName() == null || game.getName().isBlank())
+                .collect(Collectors.toList());
+
+        if (emptyNameGames.isEmpty()) {
+            return Mono.just(games);
+        }
+
+        log.info("检测到 {} 款游戏名称缺失，尝试通过 Store API 补全", emptyNameGames.size());
+
+        // 获取语言配置
+        return settingService.getEditorConfig()
+                .flatMap(editorConfig -> {
+                    String storeLanguage = editorConfig.getStoreLanguage() != null
+                            ? editorConfig.getStoreLanguage() : "auto";
+                    String resolvedLanguage = "auto".equals(storeLanguage) ? "english" : storeLanguage;
+
+                    // 并行调用 Store API 获取游戏详情
+                    List<Mono<Void>> enrichMonos = emptyNameGames.stream()
+                            .map(game -> steamApiClient.getGameDetail(game.getAppId(), resolvedLanguage)
+                                    .doOnNext(detail -> {
+                                        if (detail != null && detail.getName() != null && !detail.getName().isBlank()) {
+                                            game.setName(detail.getName());
+                                            log.debug("补全游戏名称: appId={}, name={}", game.getAppId(), detail.getName());
+                                        } else {
+                                            // Store API 也没有返回名称，使用 AppID 作为兜底
+                                            game.setName("AppID " + game.getAppId());
+                                            log.debug("Store API 未返回游戏名称，使用兜底: appId={}", game.getAppId());
+                                        }
+                                    })
+                                    .onErrorResume(e -> {
+                                        log.warn("补全游戏 {} 名称失败: {}", game.getAppId(), e.getMessage());
+                                        // API 调用失败时使用 AppID 作为兜底
+                                        game.setName("AppID " + game.getAppId());
+                                        return Mono.empty();
+                                    })
+                                    .then())
+                            .collect(Collectors.toList());
+
+                    // 等待所有补全操作完成
+                    return Mono.when(enrichMonos).thenReturn(games);
+                })
+                .onErrorResume(e -> {
+                    log.error("获取语言配置失败，跳过游戏名称补全", e);
+                    return Mono.just(games);
+                });
     }
 
     @Override
