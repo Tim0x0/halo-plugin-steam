@@ -250,6 +250,7 @@ public class SteamServiceImpl implements SteamService {
             return cacheService.get(CACHE_KEY_RECENT, RecentGamesList.class)
                     .map(RecentGamesList::getGames)
                     .switchIfEmpty(fetchAndCacheRecentGames(steamId, ttl))
+                    .flatMap(games -> enrichWithLibraryStatus(games, steamId, ttl))
                     .map(games -> {
                         // 为每个游戏设置 URL 模板
                         applyTemplates(games, headerTemplate, iconTemplate);
@@ -275,6 +276,29 @@ public class SteamServiceImpl implements SteamService {
                                 });
                     });
         });
+    }
+
+    private Mono<List<RecentGame>> enrichWithLibraryStatus(List<RecentGame> games, String steamId, int ttl) {
+        if (games == null || games.isEmpty()) {
+            return Mono.just(games != null ? games : List.of());
+        }
+
+        return cacheService.get(CACHE_KEY_GAMES, GamesList.class)
+                .switchIfEmpty(fetchAndCacheGames(steamId, ttl))
+                .map(gamesList -> gamesList.getGames() != null ? gamesList.getGames() : List.<OwnedGame>of())
+                .map(ownedGames -> {
+                    Set<Long> ownedAppIds = ownedGames.stream()
+                            .map(OwnedGame::getAppId)
+                            .collect(Collectors.toSet());
+                    games.forEach(game -> game.setInLibrary(
+                            game.getAppId() != null && ownedAppIds.contains(game.getAppId())
+                    ));
+                    return games;
+                })
+                .onErrorResume(e -> {
+                    log.warn("获取游戏库状态失败，跳过库外标识", e);
+                    return Mono.just(games);
+                });
     }
 
     /**

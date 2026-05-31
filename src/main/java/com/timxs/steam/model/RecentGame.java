@@ -31,6 +31,11 @@ public class RecentGame extends OwnedGame {
     private Boolean achievementsLocked;
 
     /**
+     * 是否存在于当前 Steam 游戏库
+     */
+    private Boolean inLibrary;
+
+    /**
      * 获取最近两周游玩时长的格式化字符串
      */
     public String getPlaytime2WeeksFormatted() {

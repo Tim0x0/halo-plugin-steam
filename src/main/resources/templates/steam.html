@@ -360,15 +360,21 @@
         }
 
         .recent-card__link {
+            position: relative;
             display: block;
             text-decoration: none;
             color: inherit;
+        }
+
+        .recent-card__image-wrap {
+            position: relative;
         }
 
         .recent-card__img {
             width: 100%;
             aspect-ratio: 460 / 215;
             object-fit: cover;
+            display: block;
         }
 
         .recent-card__info {
@@ -394,6 +400,22 @@
 
         .recent-card__time {
             color: var(--steam-green);
+        }
+
+        .recent-card__library-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: rgba(27, 40, 56, 0.88);
+            border: 1px solid rgba(102, 192, 244, 0.45);
+            color: var(--steam-accent);
+            font-size: 10px;
+            line-height: 1.2;
+            letter-spacing: 0.02em;
+            z-index: 1;
+            pointer-events: none;
         }
 
         .recent-card__achievements {
@@ -826,7 +848,10 @@
         <div class="recent-grid" th:if="${recentGames != null && !recentGames.isEmpty()}">
             <div class="recent-card" th:each="game : ${recentGames}">
                 <a th:if="${enableGameLink}" th:href="'https://store.steampowered.com/app/' + ${game.appId}" target="_blank" class="recent-card__link">
-                    <img class="recent-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                    <div class="recent-card__image-wrap">
+                        <img class="recent-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                        <span class="recent-card__library-badge" th:if="${game.inLibrary != null and !game.inLibrary}">库外</span>
+                    </div>
                     <div class="recent-card__info">
                         <div class="recent-card__name" th:text="${game.name}">Game</div>
                         <div class="recent-card__meta">
@@ -837,7 +862,10 @@
                     </div>
                 </a>
                 <div th:unless="${enableGameLink}" class="recent-card__link">
-                    <img class="recent-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                    <div class="recent-card__image-wrap">
+                        <img class="recent-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                        <span class="recent-card__library-badge" th:if="${game.inLibrary != null and !game.inLibrary}">库外</span>
+                    </div>
                     <div class="recent-card__info">
                         <div class="recent-card__name" th:text="${game.name}">Game</div>
                         <div class="recent-card__meta">
