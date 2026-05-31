@@ -14,7 +14,7 @@
 
 - 展示 Steam 用户资料（头像、昵称、在线状态、等级、上次在线时间）
 - 展示游戏库列表（支持分页、按游玩时长排序）
-- 展示最近游玩的游戏（可选显示成就进度）
+- 展示最近游玩的游戏（可选显示成就进度，支持补全缺失名称并标识库外游戏）
 - 展示统计数据（游戏总数、总游玩时长、最近两周游玩时长）
 - 展示徽章信息（徽章列表、经验值、等级进度，支持自定义徽章图片）
 - 数据缓存机制，减少 API 调用
@@ -186,7 +186,8 @@ GET /apis/api.steam.timxs.com/v1alpha1/recent?limit=5
     "name": "Counter-Strike 2",
     "playtime2Weeks": 120,
     "playtime2WeeksFormatted": "2 小时",
-    "headerImageUrl": "https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg"
+    "headerImageUrl": "https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg",
+    "inLibrary": true
   }
 ]
 ```
