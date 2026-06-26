@@ -12,6 +12,7 @@
   - [IPlayerService/GetSteamLevel](#iplayerservicegetsteamlevel)
   - [ISteamUserStats/GetPlayerAchievements](#isteamuserstatsgetplayerachievements)
   - [IPlayerService/GetBadges](#iplayerservicegetbadges)
+  - [IStoreBrowseService/GetItems](#istorebrowseservicegetitems)
 - [Steam Store API](#steam-store-api)
   - [appdetails](#appdetails)
 - [搭建自定义 API 代理](#搭建自定义-api-代理)
@@ -29,6 +30,7 @@
 | `IPlayerService/GetSteamLevel/v1/` | 获取 Steam 等级 | `api.steampowered.com` |
 | `ISteamUserStats/GetPlayerAchievements/v1/` | 获取成就进度 | `api.steampowered.com` |
 | `IPlayerService/GetBadges/v1/` | 获取徽章信息 | `api.steampowered.com` |
+| `IStoreBrowseService/GetItems/v1/` | 批量获取游戏名称与真实封面（免 Key） | `api.steampowered.com` |
 | `/api/appdetails` | 获取游戏详情 | `store.steampowered.com` |
 
 ## Steam Web API
@@ -272,6 +274,83 @@ GET https://api.steampowered.com/IPlayerService/GetBadges/v1/?key=XXX&steamid=76
 }
 ```
 
+### IStoreBrowseService/GetItems
+
+批量获取游戏的本地化名称与真实封面地址。**无需 API Key**。
+
+插件用它补全游戏库 / 最近游玩列表的名称与封面 —— 新发布游戏的封面带内容哈希、无法靠 AppID 拼接 `header.jpg`，必须通过本接口获取真实地址。
+
+**接口路径**: `/IStoreBrowseService/GetItems/v1/`
+
+**请求参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| input_json | string | 是 | URL 编码的 JSON，包含 ids、context、data_request（见下） |
+
+`input_json` 的 JSON 结构：
+
+```json
+{
+  "ids": [
+    { "appid": 730 },
+    { "appid": 570 }
+  ],
+  "context": {
+    "language": "schinese",
+    "country_code": "CN"
+  },
+  "data_request": {
+    "include_assets": true,
+    "include_basic_info": true
+  }
+}
+```
+
+- `context.language`：决定返回名称的语言（如 `schinese`、`english`）。
+- `context.country_code`：**必填**。不传会返回空数据；它只影响数据可见性与价格区域，不影响名称语言，未知语言可统一回退 `US`。
+- 插件按 35 个 appid 一批分片请求，再合并结果。
+
+**请求示例**（`input_json` 实际需 URL 编码，下例为编码前的可读形式）：
+```
+GET https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json={"ids":[{"appid":730}],"context":{"language":"schinese","country_code":"CN"},"data_request":{"include_assets":true,"include_basic_info":true}}
+```
+
+**响应示例**:
+```json
+{
+  "response": {
+    "store_items": [
+      {
+        "id": 730,
+        "appid": 730,
+        "name": "Counter-Strike 2",
+        "assets": {
+          "asset_url_format": "steam/apps/730/162664aa5da85f418105350c5d67ca565f6c3713/${FILENAME}",
+          "header": "header.jpg"
+        }
+      }
+    ]
+  }
+}
+```
+
+**封面地址拼接**:
+
+真实封面 = `https://shared.akamai.steamstatic.com/store_item_assets/` + `asset_url_format`（将其中的 `${FILENAME}` 替换为 `assets.header` 的值）。以上例结果为：
+
+```
+https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/730/162664aa5da85f418105350c5d67ca565f6c3713/header.jpg
+```
+
+**字段说明**:
+- `appid` 缺失时回退使用 `id`。
+- `name` 按 `context.language` 本地化返回，可能为空。
+- 无 `assets` 或拼接信息不全时视为封面缺失（插件前端会用占位图兜底）。
+- `visible=false` 表示当前地区/状态下商店不可见，插件会显示「不可用」徽章。
+- 某个 AppID 没出现在 `store_items` 中只表示本次 GetItems 未覆盖到它，插件不会据此判定为不可用；如果有上一次缓存封面，会继续回退使用旧封面。
+- 批量请求按 35 个 AppID 分片并发执行；单个分片失败会记录日志并返回空结果，其他成功分片仍会合并使用。
+
 ## Steam Store API
 
 ### 基础信息
@@ -297,7 +376,7 @@ GET https://api.steampowered.com/IPlayerService/GetBadges/v1/?key=XXX&steamid=76
 
 **请求示例**:
 ```
-GET https://store.steampowered.com/api/appdetails?appids=730&l=schinese&cn=CN
+GET https://store.steampowered.com/api/appdetails?appids=730&l=schinese&cc=CN
 ```
 
 **响应示例**:
@@ -347,8 +426,6 @@ GET https://store.steampowered.com/api/appdetails?appids=730&l=schinese&cn=CN
 
 ### 端点映射
 
-### 端点映射
-
 代理服务需要根据请求路径转发到不同的目标域名：
 
 | 请求路径匹配 | 转发目标 |
@@ -356,6 +433,7 @@ GET https://store.steampowered.com/api/appdetails?appids=730&l=schinese&cn=CN
 | `/ISteamUser/*` | `https://api.steampowered.com` |
 | `/IPlayerService/*` | `https://api.steampowered.com` |
 | `/ISteamUserStats/*` | `https://api.steampowered.com` |
+| `/IStoreBrowseService/*` | `https://api.steampowered.com` |
 | `/api/appdetails` | `https://store.steampowered.com` |
 
 **转发示例**（假设代理地址为 `https://proxy.example.com`）：
@@ -387,7 +465,7 @@ function getTargetUrl(path) {
   if (path.startsWith('/api/appdetails')) {
     return STEAM_STORE_API;
   }
-  // Web API: /ISteamUser/, /IPlayerService/, /ISteamUserStats/
+  // Web API: /ISteamUser/, /IPlayerService/, /ISteamUserStats/, /IStoreBrowseService/
   return STEAM_WEB_API;
 }
 
@@ -431,8 +509,8 @@ server {
         proxy_ssl_server_name on;
     }
 
-    # Steam Web API (ISteamUser, IPlayerService, ISteamUserStats)
-    location ~ ^/(ISteamUser|IPlayerService|ISteamUserStats)/ {
+    # Steam Web API (ISteamUser, IPlayerService, ISteamUserStats, IStoreBrowseService)
+    location ~ ^/(ISteamUser|IPlayerService|ISteamUserStats|IStoreBrowseService)/ {
         proxy_pass https://api.steampowered.com;
         proxy_set_header Host api.steampowered.com;
         proxy_set_header X-Real-IP $remote_addr;

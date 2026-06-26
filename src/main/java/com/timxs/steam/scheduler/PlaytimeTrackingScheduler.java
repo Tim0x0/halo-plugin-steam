@@ -33,7 +33,7 @@ public class PlaytimeTrackingScheduler {
         settingService.isHeatmapEnabled()
             .filter(enabled -> enabled)
             .flatMap(enabled -> {
-                log.info("热力图功能已启用，开始执行游戏时长追踪任务");
+                log.debug("热力图功能已启用，开始执行游戏时长追踪任务");
                 return trackingService.trackAllGames();
             })
             .doOnSuccess(count -> {
@@ -58,7 +58,7 @@ public class PlaytimeTrackingScheduler {
         settingService.isHeatmapEnabled()
             .filter(enabled -> enabled)
             .flatMap(enabled -> {
-                log.info("热力图功能已启用，开始执行过期数据清理任务");
+                log.debug("热力图功能已启用，开始执行过期数据清理任务");
                 return trackingService.cleanupExpiredData();
             })
             .doOnSuccess(count -> {

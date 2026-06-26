@@ -402,20 +402,31 @@
             color: var(--steam-green);
         }
 
-        .recent-card__library-badge {
+        /* 游戏卡片角标：仿 Steam 商店 capsule 角标风格。多状态分置左右，避免重叠 */
+        .steam-badge {
             position: absolute;
             top: 8px;
-            right: 8px;
             padding: 2px 7px;
             border-radius: 999px;
-            background: rgba(27, 40, 56, 0.88);
-            border: 1px solid rgba(102, 192, 244, 0.45);
-            color: var(--steam-accent);
             font-size: 10px;
             line-height: 1.2;
             letter-spacing: 0.02em;
             z-index: 1;
             pointer-events: none;
+        }
+        /* 不可用：左上，对齐 Steam「已在库」标识位 */
+        .steam-badge--delisted {
+            left: 8px;
+            background: rgba(60, 60, 60, 0.88);
+            border: 1px solid rgba(200, 200, 200, 0.4);
+            color: #d4d4d4;
+        }
+        /* 库外：右上 */
+        .steam-badge--library {
+            right: 8px;
+            background: rgba(27, 40, 56, 0.88);
+            border: 1px solid rgba(102, 192, 244, 0.45);
+            color: var(--steam-accent);
         }
 
         .recent-card__achievements {
@@ -454,6 +465,7 @@
 
         .game-card__link {
             display: block;
+            position: relative;
             text-decoration: none;
             color: inherit;
         }
@@ -839,7 +851,7 @@
     </section>
 
     <!-- Recent Games -->
-    <section class="section">
+    <section class="section" th:with="phImg='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22460%22%20height=%22215%22%20viewBox=%220%200%20460%20215%22%3E%3Crect%20width=%22460%22%20height=%22215%22%20fill=%22%231b2838%22/%3E%3Cg%20opacity=%220.5%22%3E%3Crect%20x=%22196%22%20y=%2278%22%20width=%2268%22%20height=%2258%22%20rx=%226%22%20fill=%22none%22%20stroke=%22%2367c1f5%22%20stroke-width=%223%22/%3E%3Ccircle%20cx=%22214%22%20cy=%2297%22%20r=%227%22%20fill=%22%2367c1f5%22/%3E%3Cpath%20d=%22M201%20132%20L221%20112%20L235%20124%20L251%20106%20L259%20132%20Z%22%20fill=%22%2367c1f5%22/%3E%3C/g%3E%3C/svg%3E'">
         <div class="section__header">
             <h2 class="section__title">最近游玩</h2>
             <span class="section__subtitle" th:if="${recentGames != null && !recentGames.isEmpty()}" th:text="'显示最近两周玩的 ' + ${#lists.size(recentGames)} + ' 款游戏'"></span>
@@ -849,8 +861,9 @@
             <div class="recent-card" th:each="game : ${recentGames}">
                 <a th:if="${enableGameLink}" th:href="'https://store.steampowered.com/app/' + ${game.appId}" target="_blank" class="recent-card__link">
                     <div class="recent-card__image-wrap">
-                        <img class="recent-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
-                        <span class="recent-card__library-badge" th:if="${game.inLibrary != null and !game.inLibrary}">库外</span>
+                        <img class="recent-card__img" th:src="${game.headerImageUrl != null ? game.headerImageUrl : phImg}" th:alt="${game.name}" loading="lazy" th:data-placeholder="${phImg}" th:onerror="'this.onerror=null;this.src=this.dataset.placeholder'">
+                        <span class="steam-badge steam-badge--library" th:if="${game.inLibrary != null and !game.inLibrary}">库外</span>
+                        <span class="steam-badge steam-badge--delisted" th:if="${game.delisted}">不可用</span>
                     </div>
                     <div class="recent-card__info">
                         <div class="recent-card__name" th:text="${game.name}">Game</div>
@@ -863,8 +876,9 @@
                 </a>
                 <div th:unless="${enableGameLink}" class="recent-card__link">
                     <div class="recent-card__image-wrap">
-                        <img class="recent-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
-                        <span class="recent-card__library-badge" th:if="${game.inLibrary != null and !game.inLibrary}">库外</span>
+                        <img class="recent-card__img" th:src="${game.headerImageUrl != null ? game.headerImageUrl : phImg}" th:alt="${game.name}" loading="lazy" th:data-placeholder="${phImg}" th:onerror="'this.onerror=null;this.src=this.dataset.placeholder'">
+                        <span class="steam-badge steam-badge--library" th:if="${game.inLibrary != null and !game.inLibrary}">库外</span>
+                        <span class="steam-badge steam-badge--delisted" th:if="${game.delisted}">不可用</span>
                     </div>
                     <div class="recent-card__info">
                         <div class="recent-card__name" th:text="${game.name}">Game</div>
@@ -893,7 +907,7 @@
     </th:block>
 
     <!-- Games Library -->
-    <section class="section">
+    <section class="section" th:with="phImg='data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%22460%22%20height=%22215%22%20viewBox=%220%200%20460%20215%22%3E%3Crect%20width=%22460%22%20height=%22215%22%20fill=%22%231b2838%22/%3E%3Cg%20opacity=%220.5%22%3E%3Crect%20x=%22196%22%20y=%2278%22%20width=%2268%22%20height=%2258%22%20rx=%226%22%20fill=%22none%22%20stroke=%22%2367c1f5%22%20stroke-width=%223%22/%3E%3Ccircle%20cx=%22214%22%20cy=%2297%22%20r=%227%22%20fill=%22%2367c1f5%22/%3E%3Cpath%20d=%22M201%20132%20L221%20112%20L235%20124%20L251%20106%20L259%20132%20Z%22%20fill=%22%2367c1f5%22/%3E%3C/g%3E%3C/svg%3E'">
         <div class="section__header">
             <h2 class="section__title">游戏库</h2>
             <span class="section__subtitle" th:if="${gamesLimit != null and gamesLimit gt 0}" th:text="'显示游玩时长最多的 ' + ${gamesLimit} + ' 款游戏'"></span>
@@ -904,7 +918,8 @@
             <div class="games-grid" th:if="${!games.items.isEmpty()}">
                 <div class="game-card" th:each="game : ${games.items}">
                     <a th:if="${enableGameLink}" th:href="'https://store.steampowered.com/app/' + ${game.appId}" target="_blank" class="game-card__link">
-                        <img class="game-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                        <img class="game-card__img" th:src="${game.headerImageUrl != null ? game.headerImageUrl : phImg}" th:alt="${game.name}" loading="lazy" th:data-placeholder="${phImg}" th:onerror="'this.onerror=null;this.src=this.dataset.placeholder'">
+                        <span class="steam-badge steam-badge--delisted" th:if="${game.delisted}">不可用</span>
                         <div class="game-card__info">
                             <div class="game-card__name" th:text="${game.name}">Game</div>
                             <div class="game-card__meta">
@@ -914,7 +929,8 @@
                         </div>
                     </a>
                     <div th:unless="${enableGameLink}" class="game-card__link">
-                        <img class="game-card__img" th:src="${game.headerImageUrl}" th:alt="${game.name}" loading="lazy">
+                        <img class="game-card__img" th:src="${game.headerImageUrl != null ? game.headerImageUrl : phImg}" th:alt="${game.name}" loading="lazy" th:data-placeholder="${phImg}" th:onerror="'this.onerror=null;this.src=this.dataset.placeholder'">
+                        <span class="steam-badge steam-badge--delisted" th:if="${game.delisted}">不可用</span>
                         <div class="game-card__info">
                             <div class="game-card__name" th:text="${game.name}">Game</div>
                             <div class="game-card__meta">

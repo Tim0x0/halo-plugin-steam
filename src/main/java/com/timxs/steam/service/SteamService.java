@@ -59,6 +59,16 @@ public interface SteamService {
     Mono<Void> refreshCache();
 
     /**
+     * 预热「活跃」组缓存（资料 + 最近游玩），由定时任务调用
+     */
+    Mono<Void> warmUpActivity();
+
+    /**
+     * 预热「库藏」组缓存（游戏库 + 徽章），由定时任务调用
+     */
+    Mono<Void> warmUpLibrary();
+
+    /**
      * 验证 API Key 和 Steam ID 是否有效
      * @return 验证结果，包含详细错误信息
      */

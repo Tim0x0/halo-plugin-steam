@@ -78,12 +78,12 @@ spec:
             - $formkit: password
               name: apiKey
               label: Steam API Key
-              help: 从 Steam 开发者页面获取 https://steamcommunity.com/dev/apikey。修改后需刷新缓存或等待缓存过期后生效
+              help: 从 Steam 开发者页面获取 https://steamcommunity.com/dev/apikey。修改后需刷新缓存或等待下一轮后台预热后生效
               validation: required
             - $formkit: text
               name: steamId
               label: Steam ID
-              help: 17位数字格式，如 76561198000000000。修改后需刷新缓存或等待缓存过期后生效
+              help: 17位数字格式，如 76561198000000000。修改后需刷新缓存或等待下一轮后台预热后生效
               validation: required
         - $formkit: number
           name: cacheTtlMinutes
@@ -91,7 +91,21 @@ spec:
           value: 10
           min: 1
           validation: "required|min:1"
-          help: 数据缓存时间。已缓存的数据不会立即应用新的过期时间，需点击"刷新缓存"重新缓存
+          help: "用于「按需查询」的数据（如文章里插入的游戏卡片详情）。"
+        - $formkit: number
+          name: recentRefreshMinutes
+          label: 活跃信息刷新间隔（分钟）
+          value: 10
+          min: 1
+          validation: "required|min:1"
+          help: 「活跃信息」指资料 + 最近游玩，变化快。后台每隔这么久自动刷新一次，建议设短一些（默认 10 分钟）。
+        - $formkit: number
+          name: gamesRefreshMinutes
+          label: 库藏信息刷新间隔（分钟）
+          value: 60
+          min: 1
+          validation: "required|min:1"
+          help: 「库藏信息」指游戏库 + 徽章，变化慢、数据较大。后台每隔这么久自动刷新一次，建议设长一些（默认 60 分钟）。
         - $formkit: range
           name: apiTimeoutSeconds
           id: apiTimeoutSeconds
@@ -101,7 +115,7 @@ spec:
           min: 5
           max: 60
           step: 1
-          help: "$: '当前值：' + $get(apiTimeoutSeconds).value + ' 秒。主题模板调用受框架限制，最大 9 秒；REST API 不受此限制'"
+          help: "$: '当前值：' + $get(apiTimeoutSeconds).value + ' 秒。用于后台拉取数据与验证 API Key；仅插件刚启动、缓存为空时的首次拉取会受影响。'"
         - $el: div
           attrs:
             class: formkit-actions
@@ -190,7 +204,7 @@ spec:
           name: showRecentAchievements
           label: 显示最近游玩成就进度
           value: false
-          help: 开启后会在最近游玩的游戏卡片上显示成就完成进度，会增加页面加载时间
+          help: 开启后会在刷新最近游玩缓存时补全成就完成进度；页面读取缓存时不会逐个游戏重新请求成就 API，但会增加后台预热耗时和 Steam API 调用量
         - $formkit: checkbox
           name: enableGameLink
           label: 点击游戏卡片跳转 Steam 商城
@@ -200,7 +214,7 @@ spec:
           name: includeFreeGames
           label: 包含免费游戏
           value: true
-          help: 开启后游戏库会包含玩过的免费游戏（如 CS2、Dota 2 等）。修改后需刷新缓存或等待缓存过期后生效
+          help: 开启后游戏库会包含玩过的免费游戏（如 CS2、Dota 2 等）。修改后需刷新缓存或等待下一轮库藏信息预热后生效
         - $formkit: array
           name: hiddenGames
           label: 隐藏的游戏
@@ -401,10 +415,10 @@ spec:
           help: "用于游戏卡片自适应主题自动检测暗色模式。填写暗色模式激活时页面上存在的 CSS 选择器。常见值：html.dark、html[data-color-scheme=dark]、html[data-theme=dark]。可通过浏览器 F12 查看 html 元素的属性变化来确定。"
         - $formkit: select
           name: storeLanguage
-          label: 游戏卡片语言
+          label: 游戏显示语言
           value: auto
           options:
-            - label: "自动（浏览器语言）"
+            - label: "自动"
               value: auto
             - label: "简体中文"
               value: schinese
@@ -420,7 +434,7 @@ spec:
               value: german
             - label: "Français"
               value: french
-          help: "Steam 游戏卡片显示的语言和价格货币。「自动」根据访客浏览器语言决定。修改后需刷新缓存或等待缓存过期后生效"    
+          help: "游戏名称、描述与价格货币的语言。「自动」时：页面列表（游戏库/最近游玩）按 Halo 后台概览语言；编辑器游戏卡片按访客浏览器语言显示。页面列表修改后需刷新缓存或等待下一轮后台预热；游戏卡片详情按缓存过期时间生效。"
     - group: proxy
       label: 代理配置
       formSchema:
@@ -429,20 +443,15 @@ spec:
           label: 图片加速
           children:
             - $formkit: text
-              name: headerImageTemplate
-              label: 游戏封面图加速地址
-              value: https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg
-              help: "默认值：https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg。支持占位符: {appid}"
-            - $formkit: text
               name: iconImageTemplate
-              label: 游戏图标加速地址
+              label: 游戏图标地址模板
               value: https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{hash}.jpg
-              help: "默认值：https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{hash}.jpg。支持占位符: {appid}, {hash}"
+              help: "游戏图标的地址模板。默认值：https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{hash}.jpg。支持占位符: {appid}, {hash}。如需域名加速请使用下方「游戏图片加速域名」。"
             - $formkit: text
               name: storeImageCdn
-              label: 游戏卡片封面图加速域名（实验性）
+              label: 游戏图片加速域名
               value: ""
-              help: "留空使用 Steam 原始地址。填入 CDN 域名（如 https://my-cdn.com）后将替换原图片 URL 的域名部分"
+              help: "留空使用 Steam 原始地址。填入 CDN 域名（如 https://my-cdn.com）后，将封面、图标、头像的图片地址域名替换为该 CDN（仅替换域名，路径不变），用于加速国内访问。"
         - $formkit: group
           name: apiProxy
           label: Steam API 代理
@@ -453,7 +462,7 @@ spec:
               key: apiProxyEnabled
               label: 启用 Steam API 代理
               value: false
-              help: 修改后需刷新缓存或等待缓存过期后生效
+              help: 修改后需刷新缓存或等待下一轮后台预热后生效
             - $formkit: radio
               name: proxyType
               id: apiProxyType
@@ -473,7 +482,7 @@ spec:
               label: 代理主机
               placeholder: "127.0.0.1"
               validation: required
-              help: 修改后需刷新缓存或等待缓存过期后生效
+              help: 修改后需刷新缓存或等待下一轮后台预热后生效
               if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'http'"
             - $formkit: number
               name: httpPort
@@ -484,7 +493,7 @@ spec:
               min: 1
               max: 65535
               validation: required
-              help: 修改后需刷新缓存或等待缓存过期后生效
+              help: 修改后需刷新缓存或等待下一轮后台预热后生效
               if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'http'"
             - $formkit: text
               name: customApiUrl
@@ -492,7 +501,7 @@ spec:
               key: customApiUrl
               label: 自定义 API 地址
               placeholder: "https://your-steam-api-proxy.com"
-              help: "替换 api.steampowered.com 的地址。修改后需刷新缓存或等待缓存过期后生效"
+              help: "替换 api.steampowered.com 的地址。修改后需刷新缓存或等待下一轮后台预热后生效"
               validation: required
               if: "$get(apiProxyEnabled).value === true && $get(apiProxyType).value === 'custom'"
 

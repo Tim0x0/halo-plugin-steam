@@ -3,6 +3,9 @@ package com.timxs.steam.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import run.halo.app.extension.ConfigMap;
+import run.halo.app.extension.ReactiveExtensionClient;
+import run.halo.app.infra.SystemSetting;
 import run.halo.app.plugin.ReactiveSettingFetcher;
 
 /**
@@ -18,12 +21,12 @@ public class SteamSettingService {
     private static final String GROUP_BADGE = "badge";
     private static final String GROUP_STATS = "stats";
     private static final String GROUP_EDITOR = "editor";
-    
+
     // 图片 URL 模板常量（公开供其他类使用）
-    public static final String DEFAULT_HEADER_TEMPLATE = "https://cdn.cloudflare.steamstatic.com/steam/apps/{appid}/header.jpg";
     public static final String DEFAULT_ICON_TEMPLATE = "https://media.steampowered.com/steamcommunity/public/images/apps/{appid}/{hash}.jpg";
 
     private final ReactiveSettingFetcher settingFetcher;
+    private final ReactiveExtensionClient client;
 
     /**
      * 获取基本配置
@@ -88,9 +91,29 @@ public class SteamSettingService {
      */
     public Mono<Integer> getApiTimeoutSeconds() {
         return getConfig()
-                .map(config -> config.getApiTimeoutSeconds() != null 
-                        ? config.getApiTimeoutSeconds() 
+                .map(config -> config.getApiTimeoutSeconds() != null
+                        ? config.getApiTimeoutSeconds()
                         : 8);
+    }
+
+    /**
+     * 获取「最近游玩」刷新间隔（分钟，定时预热用）
+     */
+    public Mono<Integer> getRecentRefreshMinutes() {
+        return getConfig()
+                .map(config -> config.getRecentRefreshMinutes() != null
+                        ? config.getRecentRefreshMinutes()
+                        : 10);
+    }
+
+    /**
+     * 获取「游戏库」刷新间隔（分钟，定时预热用）
+     */
+    public Mono<Integer> getGamesRefreshMinutes() {
+        return getConfig()
+                .map(config -> config.getGamesRefreshMinutes() != null
+                        ? config.getGamesRefreshMinutes()
+                        : 60);
     }
 
     /**
@@ -144,6 +167,8 @@ public class SteamSettingService {
         private String steamId;
         private Integer cacheTtlMinutes = 10;
         private Integer apiTimeoutSeconds = 8;
+        private Integer recentRefreshMinutes = 10;
+        private Integer gamesRefreshMinutes = 60;
     }
 
     /**
@@ -245,11 +270,11 @@ public class SteamSettingService {
     /**
      * 图片代理配置
      */
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
     @lombok.Data
     @lombok.NoArgsConstructor
     @lombok.AllArgsConstructor
     public static class ImageProxyConfig {
-        private String headerImageTemplate;
         private String iconImageTemplate;
         private String storeImageCdn;
     }
@@ -282,21 +307,6 @@ public class SteamSettingService {
     public Mono<ApiProxyConfig> getApiProxyConfig() {
         return getProxyConfig()
                 .map(config -> config.getApiProxy() != null ? config.getApiProxy() : new ApiProxyConfig());
-    }
-
-    /**
-     * 获取封面图 URL 模板
-     */
-    public Mono<String> getHeaderImageTemplate() {
-        return getProxyConfig()
-                .map(config -> {
-                    if (config.getImageProxy() != null 
-                            && config.getImageProxy().getHeaderImageTemplate() != null 
-                            && !config.getImageProxy().getHeaderImageTemplate().isBlank()) {
-                        return config.getImageProxy().getHeaderImageTemplate();
-                    }
-                    return DEFAULT_HEADER_TEMPLATE;
-                });
     }
 
     /**
@@ -342,7 +352,8 @@ public class SteamSettingService {
         }
         try {
             java.net.URL url = new java.net.URL(originalUrl);
-            String path = url.getFile();
+            // 用 getPath()（只返回路径、不含 query）；若误用 getFile() 会自带 query，导致下面重复拼接 query
+            String path = url.getPath();
             String query = url.getQuery();
             String newPath = query == null ? path : path + "?" + query;
             // 确保 CDN 域名不以 / 结尾
@@ -594,6 +605,70 @@ public class SteamSettingService {
             case "french" -> "fr";
             default -> null;
         };
+    }
+
+    /**
+     * 获取国家/地区码，无法映射时回退 US。
+     *
+     * <p>GetItems 接口要求必须携带 country_code（不传会返回空数据）。country_code 只影响
+     * 数据可见性与价格区域，不影响名称语言，因此未知语言统一回退覆盖最全的美区。
+     */
+    public static String getCountryCodeOrDefault(String language) {
+        String cc = getCountryCode(language);
+        return cc != null ? cc : "US";
+    }
+
+    /**
+     * 获取 Halo 系统语言设置（从 system ConfigMap 的 basic.language 读取）
+     * 返回 Mono<String>，用于响应式环境（预热、列表补全）
+     */
+    public Mono<String> getHaloSystemLanguage() {
+        return client.fetch(ConfigMap.class, SystemSetting.SYSTEM_CONFIG)
+            .map(ConfigMap::getData)
+            .filter(data -> data != null && !data.isEmpty())
+            .map(data -> SystemSetting.get(data, SystemSetting.Basic.GROUP, SystemSetting.Basic.class))
+            .map(SystemSetting.Basic::getLanguage)
+            .filter(lang -> lang != null && !lang.isBlank())
+            .defaultIfEmpty("zh-CN")
+            .onErrorReturn("zh-CN"); // ConfigMap 读取失败时回退
+    }
+
+    /**
+     * 从 Halo 系统语言映射到 Steam API 语言代码
+     * Halo: zh-CN, zh-TW, en, es 等 BCP 47 标签
+     * Steam: schinese, tchinese, english, spanish 等
+     */
+    private static String mapHaloLangToSteamLang(String haloLang) {
+        if (haloLang == null || haloLang.isBlank()) {
+            return "schinese";
+        }
+        String normalized = haloLang.toLowerCase().replace('_', '-');
+        return switch (normalized) {
+            case "zh-cn" -> "schinese";
+            case "zh-tw" -> "tchinese";
+            default -> switch (normalized.split("-", 2)[0]) {
+                case "zh" -> "schinese";
+                case "en" -> "english";
+                case "es" -> "spanish";
+                case "ja" -> "japanese";
+                case "ko" -> "koreana";
+                case "de" -> "german";
+                case "fr" -> "french";
+                case "ru" -> "russian";
+                case "pt" -> "portuguese";
+                case "it" -> "italian";
+                default -> "schinese"; // 其他语言回退简体中文
+            };
+        };
+    }
+
+    /**
+     * 获取实例商店语言（用于列表/最近游玩批量补全，响应式版本）
+     * 从 Halo 系统语言设置读取，而不是 JVM Locale
+     */
+    public Mono<String> getInstanceStoreLanguageReactive() {
+        return getHaloSystemLanguage()
+            .map(SteamSettingService::mapHaloLangToSteamLang);
     }
 
     /**

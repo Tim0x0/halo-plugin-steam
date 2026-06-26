@@ -1,12 +1,12 @@
 package com.timxs.steam.controller;
 
 import com.timxs.steam.model.AchievementProgress;
-import com.timxs.steam.model.BadgeInfo;
 import com.timxs.steam.model.GameDetail;
-import com.timxs.steam.model.OwnedGame;
-import com.timxs.steam.model.RecentGame;
-import com.timxs.steam.model.SteamProfile;
 import com.timxs.steam.model.SteamStats;
+import com.timxs.steam.model.vo.BadgeInfoVO;
+import com.timxs.steam.model.vo.OwnedGameVO;
+import com.timxs.steam.model.vo.ProfileVO;
+import com.timxs.steam.model.vo.RecentGameVO;
 import com.timxs.steam.service.SteamService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -17,6 +17,9 @@ import reactor.core.publisher.Mono;
 import run.halo.app.core.extension.endpoint.CustomEndpoint;
 import run.halo.app.extension.GroupVersion;
 import run.halo.app.extension.ListResult;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.springdoc.core.fn.builders.apiresponse.Builder.responseBuilder;
 import static org.springdoc.core.fn.builders.parameter.Builder.parameterBuilder;
@@ -38,7 +41,7 @@ public class SteamController implements CustomEndpoint {
                         builder -> builder.operationId("GetSteamProfile")
                                 .description("获取 Steam 用户资料")
                                 .tag(tag)
-                                .response(responseBuilder().implementation(SteamProfile.class)))
+                                .response(responseBuilder().implementation(ProfileVO.class)))
                 .GET("/games", this::getGames,
                         builder -> builder.operationId("GetSteamGames")
                                 .description("获取 Steam 游戏库")
@@ -46,13 +49,13 @@ public class SteamController implements CustomEndpoint {
                                 .parameter(parameterBuilder().name("page").description("页码").required(false))
                                 .parameter(parameterBuilder().name("size").description("每页数量").required(false))
                                 .parameter(parameterBuilder().name("sortBy").description("排序字段: playtime_forever(默认), name").required(false))
-                                .response(responseBuilder().implementation(ListResult.generateGenericClass(OwnedGame.class))))
+                                .response(responseBuilder().implementation(ListResult.generateGenericClass(OwnedGameVO.class))))
                 .GET("/recent", this::getRecentGames,
                         builder -> builder.operationId("GetRecentGames")
                                 .description("获取最近游玩的游戏")
                                 .tag(tag)
                                 .parameter(parameterBuilder().name("limit").description("返回数量").required(false))
-                                .response(responseBuilder().implementationArray(RecentGame.class)))
+                                .response(responseBuilder().implementationArray(RecentGameVO.class)))
                 .GET("/stats", this::getStats,
                         builder -> builder.operationId("GetSteamStats")
                                 .description("获取 Steam 统计数据")
@@ -68,7 +71,7 @@ public class SteamController implements CustomEndpoint {
                         builder -> builder.operationId("GetSteamBadges")
                                 .description("获取 Steam 徽章信息")
                                 .tag(tag)
-                                .response(responseBuilder().implementation(BadgeInfo.class)))
+                                .response(responseBuilder().implementation(BadgeInfoVO.class)))
                 .GET("/game-detail/{appId}", this::getGameDetail,
                         builder -> builder.operationId("GetGameDetail")
                                 .description("获取 Steam 游戏详情")
@@ -85,7 +88,7 @@ public class SteamController implements CustomEndpoint {
 
     private Mono<ServerResponse> getProfile(ServerRequest request) {
         return steamService.getProfile()
-                .flatMap(profile -> ServerResponse.ok().bodyValue(profile))
+                .flatMap(profile -> ServerResponse.ok().bodyValue(ProfileVO.from(profile)))
                 .switchIfEmpty(ServerResponse.notFound().build());
     }
 
@@ -95,14 +98,24 @@ public class SteamController implements CustomEndpoint {
         String sortBy = request.queryParam("sortBy").orElse("playtime_forever");
 
         return steamService.getOwnedGames(page, size, sortBy)
-                .flatMap(games -> ServerResponse.ok().bodyValue(games));
+                .flatMap(games -> ServerResponse.ok().bodyValue(
+                        new ListResult<>(games.getPage(), games.getSize(), games.getTotal(),
+                                games.getItems().stream()
+                                        .map(OwnedGameVO::from)
+                                        .collect(Collectors.toList()))))
+                .switchIfEmpty(ServerResponse.ok().bodyValue(
+                        new ListResult<>(page, size, 0, List.<OwnedGameVO>of())));
     }
 
     private Mono<ServerResponse> getRecentGames(ServerRequest request) {
         int limit = Math.min(20, Math.max(1, parseIntOrDefault(request.queryParam("limit").orElse(null), 5)));
 
         return steamService.getRecentGames(limit)
-                .flatMap(games -> ServerResponse.ok().bodyValue(games));
+                .flatMap(games -> ServerResponse.ok().bodyValue(
+                        games.stream()
+                                .map(RecentGameVO::from)
+                                .collect(Collectors.toList())))
+                .switchIfEmpty(ServerResponse.ok().bodyValue(List.<RecentGameVO>of()));
     }
 
     private Mono<ServerResponse> getStats(ServerRequest request) {
@@ -122,7 +135,7 @@ public class SteamController implements CustomEndpoint {
 
     private Mono<ServerResponse> getBadges(ServerRequest request) {
         return steamService.getBadges()
-                .flatMap(badges -> ServerResponse.ok().bodyValue(badges))
+                .flatMap(badges -> ServerResponse.ok().bodyValue(BadgeInfoVO.from(badges)))
                 .switchIfEmpty(ServerResponse.notFound().build());
     }
 

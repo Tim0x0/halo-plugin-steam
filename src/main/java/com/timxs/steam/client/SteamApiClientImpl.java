@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.timxs.steam.model.AchievementProgress;
 import com.timxs.steam.model.Badge;
 import com.timxs.steam.model.BadgeInfo;
@@ -11,6 +13,7 @@ import com.timxs.steam.model.GameDetail;
 import com.timxs.steam.model.OwnedGame;
 import com.timxs.steam.model.PlayerSummary;
 import com.timxs.steam.model.RecentGame;
+import com.timxs.steam.model.StoreItem;
 import com.timxs.steam.model.ValidationResult;
 import com.timxs.steam.service.SteamSettingService;
 import com.timxs.steam.service.SteamSettingService.ApiProxyConfig;
@@ -18,14 +21,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.transport.ProxyProvider;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Steam Web API 客户端实现
@@ -36,6 +44,9 @@ public class SteamApiClientImpl implements SteamApiClient {
 
     private static final String STEAM_API_BASE = "https://api.steampowered.com";
     private static final String STEAM_STORE_API = "https://store.steampowered.com";
+    private static final String STORE_ASSET_BASE = "https://shared.akamai.steamstatic.com/store_item_assets/";
+    private static final int GET_ITEMS_BATCH_SIZE = 35;
+    private static final int GET_ITEMS_CONCURRENCY = 3;
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -557,5 +568,118 @@ public class SteamApiClientImpl implements SteamApiClient {
             log.error("解析 Steam Store API 响应失败: appId={}", appId, e);
             return Mono.error(e);
         }
+    }
+
+    @Override
+    public Mono<Map<Long, StoreItem>> getStoreItems(List<Long> appIds, String language, String countryCode) {
+        if (appIds == null || appIds.isEmpty()) {
+            return Mono.just(Collections.emptyMap());
+        }
+        List<Long> uniqueIds = appIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (uniqueIds.isEmpty()) {
+            return Mono.just(Collections.emptyMap());
+        }
+        // 分批，避免单次请求 appId 过多
+        List<List<Long>> batches = new ArrayList<>();
+        for (int i = 0; i < uniqueIds.size(); i += GET_ITEMS_BATCH_SIZE) {
+            batches.add(uniqueIds.subList(i, Math.min(i + GET_ITEMS_BATCH_SIZE, uniqueIds.size())));
+        }
+        return Mono.zip(getTimeout(), getWebClient())
+                .flatMap(tuple -> {
+                    Duration timeout = tuple.getT1();
+                    WebClient webClient = tuple.getT2();
+                    return Flux.fromIterable(batches)
+                            .flatMap(batch -> fetchStoreItemsBatch(webClient, timeout, batch, language, countryCode),
+                                    GET_ITEMS_CONCURRENCY)
+                            .reduce(new HashMap<Long, StoreItem>(), (acc, map) -> {
+                                acc.putAll(map);
+                                return acc;
+                            })
+                            .map(m -> (Map<Long, StoreItem>) m);
+                });
+    }
+
+    private Mono<Map<Long, StoreItem>> fetchStoreItemsBatch(WebClient webClient, Duration timeout,
+                                                            List<Long> batch, String language, String countryCode) {
+        final String inputJson;
+        try {
+            inputJson = buildGetItemsInputJson(batch, language, countryCode);
+        } catch (Exception e) {
+            log.error("构建 GetItems 请求参数失败", e);
+            return Mono.just(Collections.emptyMap());
+        }
+        // input_json 含大量 {}，用模板变量传入避免被 UriBuilder 当作 URI 模板解析
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/IStoreBrowseService/GetItems/v1/")
+                        .queryParam("input_json", "{ij}")
+                        .build(inputJson))
+                .retrieve()
+                .bodyToMono(String.class)
+                .timeout(timeout)
+                .map(this::parseStoreItemsResponse)
+                .doOnError(e -> log.warn("GetItems 批次请求失败 (appIds={}): {}", batch, e.getMessage()))
+                .onErrorResume(e -> Mono.just(Collections.emptyMap()));
+    }
+
+    private String buildGetItemsInputJson(List<Long> batch, String language, String countryCode) throws Exception {
+        ObjectNode root = OBJECT_MAPPER.createObjectNode();
+        ArrayNode ids = root.putArray("ids");
+        for (Long appId : batch) {
+            ids.addObject().put("appid", appId);
+        }
+        ObjectNode context = root.putObject("context");
+        context.put("language", language != null && !language.isBlank() ? language : "english");
+        context.put("country_code", countryCode != null && !countryCode.isBlank() ? countryCode : "US");
+        ObjectNode dataRequest = root.putObject("data_request");
+        dataRequest.put("include_assets", true);
+        dataRequest.put("include_basic_info", true);
+        return OBJECT_MAPPER.writeValueAsString(root);
+    }
+
+    private Map<Long, StoreItem> parseStoreItemsResponse(String body) {
+        Map<Long, StoreItem> result = new HashMap<>();
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(body);
+            JsonNode items = root.path("response").path("store_items");
+            if (items.isArray()) {
+                for (JsonNode item : items) {
+                    long appId = item.path("appid").asLong(0);
+                    if (appId == 0) {
+                        appId = item.path("id").asLong(0);
+                    }
+                    if (appId == 0) {
+                        continue;
+                    }
+                    // 名称（按请求语言本地化）
+                    String name = item.path("name").asText(null);
+                    // 商店可见性（false = 当前地区或状态下不可见）
+                    Boolean visible = item.path("visible").asBoolean(true);
+                    // 真实封面：asset_url_format 中的 ${FILENAME} 替换为 header 文件名
+                    String headerImage = null;
+                    JsonNode assets = item.path("assets");
+                    if (!assets.isMissingNode()) {
+                        String assetUrlFormat = assets.path("asset_url_format").asText(null);
+                        String header = assets.path("header").asText(null);
+                        if (assetUrlFormat != null && !assetUrlFormat.isBlank()
+                                && header != null && !header.isBlank()) {
+                            headerImage = STORE_ASSET_BASE + assetUrlFormat.replace("${FILENAME}", header);
+                        }
+                    }
+                    result.put(appId, StoreItem.builder()
+                            .appId(appId)
+                            .name(name != null && !name.isBlank() ? name : null)
+                            .headerImage(headerImage)
+                            .visible(visible)
+                            .build());
+                }
+            }
+        } catch (Exception e) {
+            log.error("解析 GetItems 响应失败", e);
+        }
+        return result;
     }
 }

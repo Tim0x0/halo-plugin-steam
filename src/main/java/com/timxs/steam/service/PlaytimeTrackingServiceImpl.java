@@ -68,7 +68,7 @@ public class PlaytimeTrackingServiceImpl implements PlaytimeTrackingService {
                         if (count == 0) {
                             log.warn("追踪完成，但未处理任何游戏。可能原因：1) 游戏时长为0；2) Steam API 返回空列表；3) 所有游戏处理失败");
                         } else {
-                            log.info("追踪完成，处理 {} 款游戏", count);
+                            log.debug("追踪完成，处理 {} 款游戏", count);
                         }
                     })
                     .doOnError(e -> log.warn("追踪游戏时长失败: {}", e.getMessage()));
@@ -396,7 +396,7 @@ public class PlaytimeTrackingServiceImpl implements PlaytimeTrackingService {
                     .map(Long::intValue)
                     .doOnSuccess(count -> {
                         if (count > 0) {
-                            log.info("清理完成，删除 {} 条过期记录", count);
+                            log.debug("清理完成，删除 {} 条过期记录", count);
                         } else {
                             log.debug("无过期记录需要清理");
                         }
