@@ -134,7 +134,8 @@
 <!-- 最近游玩 -->
 <th:block th:with="recentGames=${steamFinder.getRecentGames(5)}">
     <div th:if="${recentGames != null}" th:each="game : ${recentGames}">
-        <img th:src="${game.headerImageUrl}" th:alt="${game.name}">
+        <!-- headerImageUrl 可能为 null（封面缺失），需判空兜底占位图 -->
+        <img th:src="${game.headerImageUrl != null ? game.headerImageUrl : '/placeholder.png'}" th:alt="${game.name}">
         <span th:text="${game.name}">游戏名</span>
         <span th:text="${game.playtime2WeeksFormatted}">游玩时长</span>
     </div>
