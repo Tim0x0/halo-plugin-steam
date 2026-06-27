@@ -109,6 +109,9 @@
         recent: zh ? '\u6700\u8FD1' : '\u6700\u8FD1',
         loadFailed: zh ? '\u52A0\u8F09\u5931\u6557' : '\u52A0\u8F7D\u5931\u8D25',
         retry: zh ? '\u91CD\u8A66' : '\u91CD\u8BD5',
+        unavailable: zh ? '\u8A72\u904A\u6232\u4E0D\u53EF\u7528' : '\u8BE5\u6E38\u620F\u4E0D\u53EF\u7528',
+        unavailableDesc: zh ? '\u5DF2\u4E0B\u67B6\u3001\u5340\u57DF\u9650\u5236\u6216 ID \u7121\u6548' : '\u5DF2\u4E0B\u67B6\u3001\u533A\u57DF\u9650\u5236\u6216 ID \u65E0\u6548',
+        viewStore: '\u524D\u5F80\u5546\u5E97',
       };
       var en = {
         played: 'Played',
@@ -117,6 +120,9 @@
         recent: 'Last played',
         loadFailed: 'Failed to load',
         retry: 'Retry',
+        unavailable: 'Unavailable',
+        unavailableDesc: 'Delisted, region-locked, or invalid App ID',
+        viewStore: 'View on Store',
       };
       return SteamGameCard.isChinese(lang) ? labels[key] : en[key];
     }
@@ -179,9 +185,30 @@
       }
     }
 
+    renderUnavailable() {
+      var dark = this.getTheme() === 'steam-dark' || (this.getTheme() === 'adaptive' && this._isDark);
+      var appId = this.getAttribute('app-id') || this.getAttribute('appid') || '';
+      var storeUrl = 'https://store.steampowered.com/app/' + appId;
+      this._shadow.innerHTML = '<style>' + this.getStyles() + '</style>' +
+        '<div class="card ' + (dark ? 'dark' : 'light') + '">' +
+          '<div class="unavailable-wrap">' +
+            '<div class="unavailable-icon">' +
+              '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
+                '<circle cx="12" cy="12" r="10"/>' +
+                '<line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>' +
+              '</svg>' +
+            '</div>' +
+            '<div class="unavailable-title">' + SteamGameCard.t('unavailable', this._lang) + '</div>' +
+            '<div class="unavailable-desc">' + SteamGameCard.t('unavailableDesc', this._lang) + '</div>' +
+            '<a class="unavailable-link" href="' + storeUrl + '" target="_blank" rel="noopener noreferrer">AppID ' + this.escapeHtml(appId) + ' · ' + SteamGameCard.t('viewStore', this._lang) + '</a>' +
+          '</div>' +
+        '</div>';
+    }
+
     render() {
       var d = this._data;
       if (!d) return;
+      if (d.delisted) { this.renderUnavailable(); return; }
       var lang = this._lang;
 
       var dark = this.getTheme() === 'steam-dark' || (this.getTheme() === 'adaptive' && this._isDark);
@@ -359,6 +386,16 @@
         '.card.dark .retry-btn:hover { background: #8ad4f8; }' +
         '.card.light .retry-btn { background: #1a73e8; color: #ffffff; }' +
         '.card.light .retry-btn:hover { background: #1565c0; }' +
+
+        /* 不可用 / 已下架 */
+        '.unavailable-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 20px; gap: 8px; min-height: 140px; text-align: center; }' +
+        '.unavailable-icon { opacity: 0.4; }' +
+        '.unavailable-title { font-size: 16px; font-weight: 600; }' +
+        '.unavailable-desc { font-size: 12px; opacity: 0.6; }' +
+        '.unavailable-link { margin-top: 6px; font-size: 12px; text-decoration: none; opacity: 0.9; }' +
+        '.card.dark .unavailable-link { color: #66c0f4; }' +
+        '.card.light .unavailable-link { color: #1a73e8; }' +
+        '.unavailable-link:hover { text-decoration: underline; }' +
 
         /* 响应式 - 基于容器宽度 */
         '@container (max-width: 420px) {' +

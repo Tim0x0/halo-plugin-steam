@@ -23,6 +23,7 @@ interface GameDetail {
   priceFormatted: string;
   releaseDate: string;
   storeUrl: string;
+  delisted?: boolean;
   owned: boolean;
   playtimeForever: number;
   playtimeFormatted: string;
@@ -171,6 +172,31 @@ onMounted(() => {
     <div v-else-if="error && !data" class="steam-card-error">
       <p>{{ error }}</p>
       <button @click="fetchData(appId)">重试</button>
+    </div>
+
+    <!-- 不可用 / 已下架 -->
+    <div
+      v-else-if="data && data.delisted"
+      class="steam-card-unavailable"
+      :class="{ 'theme-dark': theme === 'steam-dark' }"
+    >
+      <svg class="unavailable-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+      </svg>
+      <div class="unavailable-text">
+        <h4 class="unavailable-title">该游戏不可用</h4>
+        <p class="unavailable-desc">已下架、区域限制或 App ID 无效</p>
+        <div class="unavailable-meta">
+          <span>AppID {{ appId }}</span>
+          <a
+            :href="`https://store.steampowered.com/app/${appId}`"
+            target="_blank"
+            rel="noopener noreferrer"
+          >前往商店 ↗</a>
+        </div>
+      </div>
+      <button class="edit-btn" @click="openSettings" title="编辑">&#9998;</button>
     </div>
 
     <!-- 预览卡片 -->
@@ -348,6 +374,64 @@ onMounted(() => {
   border: none;
   border-radius: 4px;
   cursor: pointer;
+}
+
+/* 不可用 / 已下架 */
+.steam-card-unavailable {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #6b7280;
+  position: relative;
+}
+.steam-card-unavailable.theme-dark {
+  background: #1b2838;
+  border-color: #2a475e;
+  color: #8f98a0;
+}
+.unavailable-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+.unavailable-text {
+  flex: 1;
+  min-width: 0;
+}
+.unavailable-title {
+  margin: 0 0 2px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #4b5563;
+}
+.steam-card-unavailable.theme-dark .unavailable-title {
+  color: #c7d5e0;
+}
+.unavailable-desc {
+  margin: 0 0 6px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+.unavailable-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12px;
+}
+.unavailable-meta a {
+  color: #1a9fff;
+  text-decoration: none;
+}
+.unavailable-meta a:hover {
+  text-decoration: underline;
+}
+.steam-card-unavailable:hover .edit-btn {
+  opacity: 1;
 }
 
 /* 预览卡片 */

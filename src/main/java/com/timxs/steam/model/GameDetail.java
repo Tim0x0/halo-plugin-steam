@@ -22,6 +22,9 @@ public class GameDetail {
     private String releaseDate;       // 发售日期
     private String storeUrl;          // Steam 商店链接
 
+    /** 是否不可用（商店明确不可见：已下架/区域锁/审核限制，或无效 AppID）。为 true 时其余字段通常为空 */
+    private Boolean delisted;
+
     // 个人数据（仅当用户拥有该游戏时填充）
     private Boolean owned;                // 是否拥有
     private Integer playtimeForever;      // 总时长（分钟）

@@ -858,8 +858,9 @@ public class SteamServiceImpl implements SteamService {
         return singleflight(cacheKey, Mono.defer(() -> {
             log.debug("从 Steam API 获取游戏详情: appId={}", appId);
 
-            // 1. 获取 Store API 基础数据
-            Mono<GameDetail> detailMono = steamApiClient.getGameDetail(appId, language);
+            // 1. 获取 Store API 基础数据；appdetails success=false（empty）时用 GetItems 判定是否「不可用」
+            Mono<GameDetail> detailMono = steamApiClient.getGameDetail(appId, language)
+                    .switchIfEmpty(Mono.defer(() -> resolveDelistedOrEmpty(appId, language)));
 
             // 2. 获取拥有的游戏列表（复用缓存）
             Mono<List<OwnedGame>> gamesMono = cacheService.getStale(CACHE_KEY_GAMES, GamesList.class)
@@ -877,6 +878,11 @@ public class SteamServiceImpl implements SteamService {
                     .flatMap(tuple -> {
                         GameDetail detail = tuple.getT1();
                         List<OwnedGame> ownedGames = tuple.getT2();
+
+                        // 不可用游戏：跳过 CDN / 拥有状态 / 成就，直接交给下游统一缓存
+                        if (Boolean.TRUE.equals(detail.getDelisted())) {
+                            return Mono.just(detail);
+                        }
 
                         // 应用图片 CDN 域名替换（可选操作）
                         return applyCdnIfConfigured(detail)
@@ -936,5 +942,28 @@ public class SteamServiceImpl implements SteamService {
         }
 
         return Mono.just(detail);
+    }
+
+    /**
+     * Store appdetails 返回 success=false（取不到详情）时的兜底判定：
+     * 用 GetItems 的 visible 判断商店是否「明确不可见」（已下架 / 区域锁 / 审核限制）。
+     * <p>仅当 GetItems 明确返回 visible=false 才标记 delisted；item 缺席或请求失败一律不标
+     * （可能只是限流或冷门），维持 empty，让上层走 404 → 前端「加载失败 + 重试」。
+     * 判定标准与游戏库 / 最近游玩的 {@link #enrichWithStoreItems} 同源。
+     */
+    private Mono<GameDetail> resolveDelistedOrEmpty(Long appId, String language) {
+        String cc = SteamSettingService.getCountryCodeOrDefault(language);
+        return steamApiClient.getStoreItems(List.of(appId), language, cc)
+                .flatMap(itemMap -> {
+                    StoreItem item = itemMap.get(appId);
+                    if (item != null && Boolean.FALSE.equals(item.getVisible())) {
+                        log.debug("游戏不可用（GetItems visible=false）: appId={}", appId);
+                        return Mono.just(GameDetail.builder()
+                                .appId(appId)
+                                .delisted(true)
+                                .build());
+                    }
+                    return Mono.<GameDetail>empty();
+                });
     }
 }

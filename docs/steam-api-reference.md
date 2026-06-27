@@ -387,7 +387,7 @@ GET https://store.steampowered.com/api/appdetails?appids=730&l=schinese&cc=CN
     "data": {
       "name": "Counter-Strike 2",
       "steam_appid": 730,
-      "header_image": "https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg",
+      "header_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/730/header_schinese.jpg?t=1780435263",
       "short_description": "游戏简介...",
       "is_free": true,
       "developers": ["Valve"],
@@ -412,6 +412,17 @@ GET https://store.steampowered.com/api/appdetails?appids=730&l=schinese&cc=CN
   }
 }
 ```
+
+**`success` 字段说明**:
+
+- `success: true` —— 正常返回 `data`。`data.type` 可能是 `game`、`dlc`、`music`、`demo` 等，**非 game 类型同样返回 `success: true`**（实测配乐 AppID `2678630` 为 `type: "music"` 且成功）。
+- `success: false` —— 响应体仅为 `{"<appid>": {"success": false}}`，**不含 data、不含原因码**。下列情况都会返回 `false` 且无法区分：
+  - AppID 不存在 / 填写错误
+  - 游戏已下架（全球）
+  - 当前区域不可见（区域锁）
+  - 接口限流（Store API 限流较严，被限时正常游戏也会 `false`）
+
+> ⚠️ 因此**不能**用 appdetails 的 `success: false` 判定「游戏不可用」——它分不清「下架」与「限流 / 输错 ID」。插件的游戏卡片在 appdetails 返回 `success: false` 时，会再用 `IStoreBrowseService/GetItems` 的 `visible=false`（显式信号）二次确认；GetItems 未明确返回 `visible=false`（缺席或请求失败）时仍按「加载失败」处理并保留重试，避免把限流误判成下架。判定口径与游戏库 / 最近游玩一致。
 
 ## 搭建自定义 API 代理
 
