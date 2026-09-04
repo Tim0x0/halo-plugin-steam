@@ -406,7 +406,7 @@ cd halo-plugin-steam
 
 </details>
 
-更多问题见 **[使用教程](docs/usage-guide.md)**，或在 [Issues](https://github.com/Tim0x0/halo-plugin-steam/issues) 中反馈。
+更多问题见 **[使用教程](docs/usage-guide.md)**，或在 [BBS 社区](https://blog.timxs.com/bbs?category=steam) 中反馈。
 
 ## 📋 环境要求
 
@@ -418,10 +418,10 @@ cd halo-plugin-steam
 
 ## 🤝 贡献
 
-欢迎提交 Issue 与 Pull Request！
+欢迎提交反馈与 Pull Request！
 
-- 🐛 [报告问题](https://github.com/Tim0x0/halo-plugin-steam/issues)
-- 💡 [功能建议](https://github.com/Tim0x0/halo-plugin-steam/issues)
+- 🐛 [报告问题](https://blog.timxs.com/bbs?category=steam)
+- 💡 [功能建议](https://blog.timxs.com/bbs?category=steam)
 - 🔧 提交 PR 前请确保 `./gradlew test` 通过
 
 ## 📄 许可证

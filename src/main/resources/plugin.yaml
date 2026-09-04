@@ -14,7 +14,7 @@ spec:
   logo: logo.png
   homepage: https://github.com/Tim0x0/halo-plugin-steam#readme
   repo: https://github.com/Tim0x0/halo-plugin-steam
-  issues: https://github.com/Tim0x0/halo-plugin-steam/issues
+  issues: https://blog.timxs.com/bbs?category=steam
   displayName: "Steam 信息展示"
   description: "在 Halo 博客中展示 Steam 用户资料、游戏库和最近游玩记录"
   version: "1.0.0"
